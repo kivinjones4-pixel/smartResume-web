@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BankOutlined,
   BookOutlined,
   CloudDownloadOutlined,
   DeleteOutlined,
+  EditOutlined,
   FileAddOutlined,
   FileTextOutlined,
   LeftOutlined,
@@ -23,20 +24,23 @@ import {
 import {
   Avatar,
   Button,
-  DatePicker,
   Dropdown,
   Empty,
   Form,
   Input,
+  Modal,
   Select,
   Space,
   Tag,
   Tooltip,
   Typography,
+  message,
   type MenuProps,
 } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../auth/useAuth'
+import { useAuth } from '../../store/Auth'
+import { useResumeStore } from '../../store/Resume'
+import type { BasicProfileValues, Resume } from '../../types/Resume'
 
 const { Text, Title } = Typography
 const { TextArea } = Input
@@ -61,12 +65,6 @@ const records: Record<ModuleKey, string[]> = {
   award: ['全国大学生创新创业大赛金奖', '优秀毕业生'],
 }
 
-const resumes = [
-  { id: 'product', name: '高级产品经理求职简历', template: '简约商务', updated: '刚刚更新' },
-  { id: 'ai', name: 'AI 产品经理求职简历', template: '现代极简', updated: '昨天更新' },
-  { id: 'general', name: '通用中文简历', template: '经典专业', updated: '3 天前更新' },
-]
-
 const navItems = [
   { label: '首页', path: '/' },
   { label: 'AI 简历', path: '/resume' },
@@ -78,15 +76,43 @@ const navItems = [
 function ResumeWorkspace() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const {
+    resumes,
+    profile,
+    selectedResumeId,
+    selectedResume: selectedResumeData,
+    loading,
+    load,
+    selectResume,
+    createResume,
+    renameResume,
+    deleteResume,
+    saveBasicProfile,
+  } = useResumeStore()
+  const [profileForm] = Form.useForm<BasicProfileValues>()
   const [activeModule, setActiveModule] = useState<ModuleKey>('profile')
   const [recordIndex, setRecordIndex] = useState(0)
   const [editorCollapsed, setEditorCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
-  const [selectedResume, setSelectedResume] = useState(resumes[0]?.id ?? '')
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<Resume | null>(null)
+  const [renameTitle, setRenameTitle] = useState('')
+  const [renameSaving, setRenameSaving] = useState(false)
 
   const currentModule = modules.find((item) => item.key === activeModule) ?? modules[0]
-  const selectedResumeData = resumes.find((item) => item.id === selectedResume)
+  useEffect(() => {
+    void load().catch(() => message.error('加载基本信息失败'))
+  }, [load])
+
+  useEffect(() => {
+    if (!profile) return
+    profileForm.setFieldsValue({
+      ...profile,
+      birth_date: profile.birth_date?.slice(0, 10) ?? null,
+      resume_id: selectedResumeId,
+      target_position: selectedResumeData?.target_position ?? '',
+    })
+  }, [profile, profileForm, selectedResumeData, selectedResumeId])
 
   const gridTemplate = useMemo(() => {
     const editorWidth = editorCollapsed ? '0px' : '360px'
@@ -115,9 +141,82 @@ function ResumeWorkspace() {
     if (editorCollapsed) setEditorCollapsed(false)
   }
 
+  const handleCreateResume = async () => {
+    try {
+      await createResume()
+      message.success('已新建简历')
+    } catch {
+      message.error('新建简历失败')
+    }
+  }
+
+  const handleSave = async () => {
+    if (activeModule !== 'profile') {
+      message.info('当前模块保存接口将在对应模块开发时接入')
+      return
+    }
+    if (!selectedResumeId) {
+      message.warning('请先新建或选择一份简历')
+      return
+    }
+    try {
+      const values = await profileForm.validateFields()
+      await saveBasicProfile({
+        ...values,
+        resume_id: selectedResumeId,
+        target_position: values.target_position.trim(),
+      })
+      message.success('基本信息与求职方向已保存')
+    } catch (error) {
+      if (error instanceof Error) message.error(error.message)
+    }
+  }
+
+  const openRenameModal = (resume: Resume) => {
+    setRenameTarget(resume)
+    setRenameTitle(resume.title)
+  }
+
+  const handleRenameResume = async () => {
+    const title = renameTitle.trim()
+    if (!renameTarget || !title) {
+      message.warning('请输入简历标题')
+      return
+    }
+    setRenameSaving(true)
+    try {
+      await renameResume(renameTarget.id, title)
+      setRenameTarget(null)
+      message.success('简历标题已修改')
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '修改简历标题失败')
+    } finally {
+      setRenameSaving(false)
+    }
+  }
+
+  const confirmDeleteResume = (resume: Resume) => {
+    Modal.confirm({
+      title: '删除这份简历？',
+      content: `“${resume.title}”删除后无法恢复，相关版本与导出记录也会一并清理。`,
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteResume(resume.id)
+          message.success('简历已删除，列表已刷新')
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : '删除简历失败')
+          throw error
+        }
+      },
+    })
+  }
+
   return (
-    <div className="h-screen min-w-[1180px] overflow-hidden bg-[#f5f6fa]">
-      <header className="fixed inset-x-0 top-0 z-50 h-[72px] border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+    <div className="h-screen min-w-295 overflow-hidden bg-[#f5f6fa]">
+      <header className="fixed inset-x-0 top-0 z-50 h-18 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-full w-[min(1440px,calc(100%-48px))] items-center">
           <button
             className="brand"
@@ -166,7 +265,7 @@ function ResumeWorkspace() {
       </header>
 
       <main
-        className="relative mt-[72px] grid h-[calc(100vh-72px)] overflow-hidden transition-[grid-template-columns] duration-300"
+        className="relative mt-18 grid h-[calc(100vh-72px)] overflow-hidden transition-[grid-template-columns] duration-300"
         style={{ gridTemplateColumns: gridTemplate }}
       >
         <aside className="z-10 flex min-w-0 flex-col border-r border-slate-200 bg-white">
@@ -210,8 +309,8 @@ function ResumeWorkspace() {
             editorCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="flex h-full w-[360px] flex-col">
-            <div className="flex min-h-[74px] items-center justify-between border-b border-slate-100 px-5">
+          <div className="flex h-full w-90 flex-col">
+            <div className="flex min-h-18.5 items-center justify-between border-b border-slate-100 px-5">
               <div>
                 <Text className="block! text-xs! text-slate-400!">正在编辑</Text>
                 <Title level={5} className="mt-1! mb-0!">
@@ -248,7 +347,11 @@ function ResumeWorkspace() {
             )}
 
             <div className="flex-1 overflow-y-auto px-5 py-5">
-              <EditorForm moduleKey={activeModule} />
+              <EditorForm
+                moduleKey={activeModule}
+                form={profileForm}
+                hasSelectedResume={Boolean(selectedResumeData)}
+              />
             </div>
 
             <div className="flex items-center justify-between border-t border-slate-100 bg-white p-4">
@@ -261,7 +364,13 @@ function ResumeWorkspace() {
               )}
               <Space>
                 <Button>取消</Button>
-                <Button type="primary" icon={<SaveOutlined />}>
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  loading={loading}
+                  disabled={activeModule === 'profile' && !selectedResumeData}
+                  onClick={handleSave}
+                >
                   保存
                 </Button>
               </Space>
@@ -269,21 +378,21 @@ function ResumeWorkspace() {
           </div>
         </section>
 
-        <section className="relative min-w-[620px] overflow-auto bg-[#eef0f5]">
+        <section className="relative min-w-155 overflow-auto bg-[#eef0f5]">
           {rightCollapsed && (
             <Tooltip title="展开简历侧栏">
               <Button
-                className="absolute top-4 right-4 z-20 shadow-sm"
+                // className="fixed top-[88px] right-4 z-40 shadow-sm"
                 icon={<LeftOutlined />}
                 onClick={() => setRightCollapsed(false)}
               />
             </Tooltip>
           )}
 
-          <div className="sticky top-0 z-10 flex h-[54px] items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur">
+          <div className="sticky top-0 z-10 flex h-13.5 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur">
             <div className="flex items-center gap-2">
               <FileTextOutlined className="text-indigo-500" />
-              <Text strong>{selectedResumeData?.name ?? '未选择简历'}</Text>
+              <Text strong>{selectedResumeData?.title ?? '未选择简历'}</Text>
               <Tag color="green">自动保存</Tag>
             </div>
             <Space>
@@ -304,14 +413,14 @@ function ResumeWorkspace() {
 
           <div className="flex min-h-[calc(100%-54px)] justify-center p-9">
             {selectedResumeData ? (
-              <ResumePaper title={selectedResumeData.name} />
+              <ResumePaper title={selectedResumeData.title} />
             ) : (
-              <div className="grid min-h-[600px] w-full place-items-center">
+              <div className="grid min-h-150 w-full place-items-center">
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description="暂无简历，请从右侧新建一份简历"
                 >
-                  <Button type="primary" icon={<FileAddOutlined />}>
+                  <Button type="primary" icon={<FileAddOutlined />} onClick={handleCreateResume}>
                     新建简历
                   </Button>
                 </Empty>
@@ -325,8 +434,8 @@ function ResumeWorkspace() {
             rightCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="flex h-full w-[286px] flex-col">
-            <div className="flex min-h-[74px] items-center justify-between border-b border-slate-100 px-5">
+          <div className="flex h-full w-71.5 flex-col">
+            <div className="flex min-h-18.5 items-center justify-between border-b border-slate-100 px-5">
               <div>
                 <Text className="block! text-xs! text-slate-400!">简历管理</Text>
                 <Title level={5} className="mt-1! mb-0!">
@@ -343,41 +452,72 @@ function ResumeWorkspace() {
             </div>
 
             <div className="border-b border-slate-100 p-4">
-              <Button block type="primary" icon={<PlusOutlined />}>
+              <Button block type="primary" icon={<PlusOutlined />} onClick={handleCreateResume}>
                 新建简历
               </Button>
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {resumes.map((resume) => (
-                <button
+                <div
                   key={resume.id}
-                  type="button"
-                  onClick={() => setSelectedResume(resume.id)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectResume(resume.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') selectResume(resume.id)
+                  }}
                   className={`w-full rounded-xl border p-3 text-left transition ${
-                    resume.id === selectedResume
+                    resume.id === selectedResumeId
                       ? 'border-indigo-300 bg-indigo-50 shadow-sm'
                       : 'border-slate-200 bg-white hover:border-indigo-200'
                   }`}
                 >
                   <div className="mb-3 flex gap-3">
-                    <div className="grid h-[62px] w-[46px] shrink-0 place-items-center rounded border border-slate-200 bg-white shadow-sm">
+                    <div className="grid h-15.5 w-11.5 shrink-0 place-items-center rounded border border-slate-200 bg-white shadow-sm">
                       <FileTextOutlined className="text-lg text-indigo-400" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <Text strong className="block! truncate! text-sm!">
-                        {resume.name}
+                        {resume.title}
                       </Text>
                       <Tag className="mt-2! text-[10px]!" color="blue">
-                        {resume.template}
+                        {resume.template_key}
                       </Tag>
                       <Text className="mt-1 block! text-[10px]! text-slate-400!">
-                        {resume.updated}
+                        {new Date(resume.updated_at).toLocaleDateString('zh-CN')}
                       </Text>
                     </div>
-                    <MoreOutlined className="text-slate-400" />
+                    <Dropdown
+                      trigger={['click']}
+                      menu={{
+                        items: [
+                          { key: 'rename', label: '修改简历标题', icon: <EditOutlined /> },
+                          { type: 'divider' },
+                          {
+                            key: 'delete',
+                            label: '删除简历',
+                            icon: <DeleteOutlined />,
+                            danger: true,
+                          },
+                        ],
+                        onClick: ({ key, domEvent }) => {
+                          domEvent.stopPropagation()
+                          if (key === 'rename') openRenameModal(resume)
+                          if (key === 'delete') confirmDeleteResume(resume)
+                        },
+                      }}
+                    >
+                      <Button
+                        type="text"
+                        size="small"
+                        aria-label={`管理简历：${resume.title}`}
+                        icon={<MoreOutlined />}
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                    </Dropdown>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
 
@@ -392,36 +532,94 @@ function ResumeWorkspace() {
           </div>
         </aside>
       </main>
+      <Modal
+        title="修改简历标题"
+        open={Boolean(renameTarget)}
+        okText="保存"
+        cancelText="取消"
+        confirmLoading={renameSaving}
+        onOk={handleRenameResume}
+        onCancel={() => {
+          if (!renameSaving) setRenameTarget(null)
+        }}
+      >
+        <Input
+          className="mt-4"
+          value={renameTitle}
+          maxLength={150}
+          showCount
+          autoFocus
+          placeholder="请输入简历标题"
+          onChange={(event) => setRenameTitle(event.target.value)}
+          onPressEnter={handleRenameResume}
+        />
+      </Modal>
     </div>
   )
 }
 
-function EditorForm({ moduleKey }: { moduleKey: ModuleKey }) {
+function EditorForm({
+  moduleKey,
+  form,
+  hasSelectedResume,
+}: {
+  moduleKey: ModuleKey
+  form: ReturnType<typeof Form.useForm<BasicProfileValues>>[0]
+  hasSelectedResume: boolean
+}) {
   if (moduleKey === 'profile') {
     return (
-      <Form layout="vertical" requiredMark={false}>
-        <Form.Item label="姓名">
-          <Input defaultValue="佳卓" />
+      <Form form={form} layout="vertical" requiredMark={false}>
+        <Form.Item
+          label="真实姓名"
+          name="full_name"
+          rules={[{ required: true, whitespace: true, message: '请输入真实姓名' }]}
+        >
+          <Input placeholder="请输入真实姓名" maxLength={100} />
         </Form.Item>
-        <Form.Item label="求职方向">
-          <Input defaultValue="高级产品经理" />
+        <Form.Item
+          label="性别"
+          name="gender"
+          rules={[{ required: true, message: '请选择性别' }]}
+        >
+          <Select
+            placeholder="请选择性别"
+            options={[
+              { value: 'male', label: '男' },
+              { value: 'female', label: '女' },
+              { value: 'other', label: '其他' },
+              { value: 'undisclosed', label: '不愿透露' },
+            ]}
+          />
         </Form.Item>
-        <div className="grid grid-cols-2 gap-3">
-          <Form.Item label="手机号">
-            <Input defaultValue="138 0000 0000" />
+        {hasSelectedResume && (
+          <Form.Item
+            label="求职方向"
+            name="target_position"
+            rules={[{ required: true, whitespace: true, message: '请输入求职方向' }]}
+          >
+            <Input placeholder="例如：高级产品经理" maxLength={150} />
           </Form.Item>
-          <Form.Item label="所在城市">
-            <Input defaultValue="深圳" />
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <Form.Item label="联系电话" name="contact_phone">
+            <Input placeholder="联系电话" />
+          </Form.Item>
+          <Form.Item label="所在城市" name="location">
+            <Input placeholder="所在城市" />
           </Form.Item>
         </div>
-        <Form.Item label="联系邮箱">
-          <Input defaultValue="jiazhuo@example.com" />
+        <Form.Item label="联系邮箱" name="contact_email" rules={[{ type: 'email' }]}>
+          <Input placeholder="联系邮箱" />
         </Form.Item>
-        <Form.Item label="个人优势">
-          <TextArea
-            rows={7}
-            defaultValue="6 年互联网产品经验，专注 AI 产品与企业效率工具，具备从用户研究、产品规划到商业化落地的完整经验。"
-          />
+        <Form.Item label="职业标题" name="headline">
+          <Input placeholder="例如：6 年经验的 AI 产品经理" />
+        </Form.Item>
+        <Form.Item label="出生日期" name="birth_date">
+          <Input type="date" />
+        </Form.Item>
+        <Form.Item label="个人优势" name="summary">
+          <TextArea rows={7} placeholder="介绍你的经验、优势和职业亮点" />
         </Form.Item>
       </Form>
     )
@@ -446,10 +644,10 @@ function EditorForm({ moduleKey }: { moduleKey: ModuleKey }) {
       </Form.Item>
       <div className="grid grid-cols-2 gap-3">
         <Form.Item label="开始时间">
-          <DatePicker picker="month" className="w-full" placeholder="开始时间" />
+          <Input type="month" />
         </Form.Item>
         <Form.Item label="结束时间">
-          <DatePicker picker="month" className="w-full" placeholder="结束时间" />
+          <Input type="month" />
         </Form.Item>
       </div>
       <Form.Item label="经历描述">
@@ -467,7 +665,7 @@ function EditorForm({ moduleKey }: { moduleKey: ModuleKey }) {
 
 function ResumePaper({ title }: { title: string }) {
   return (
-    <article className="min-h-[960px] w-[720px] bg-white px-14 py-12 text-[#343a4a] shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
+    <article className="min-h-240 w-180 bg-white px-14 py-12 text-[#343a4a] shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
       <header className="flex items-start justify-between border-b-2 border-indigo-500 pb-7">
         <div>
           <h1 className="m-0 text-[30px] font-bold tracking-wide text-slate-800">佳卓</h1>
@@ -476,7 +674,7 @@ function ResumePaper({ title }: { title: string }) {
             深圳 · 138 0000 0000 · jiazhuo@example.com
           </p>
         </div>
-        <div className="grid h-[72px] w-[72px] place-items-center rounded-full bg-indigo-100 text-2xl font-bold text-indigo-500">
+        <div className="grid h-18 w-18 place-items-center rounded-full bg-indigo-100 text-2xl font-bold text-indigo-500">
           JZ
         </div>
       </header>

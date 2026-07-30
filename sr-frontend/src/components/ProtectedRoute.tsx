@@ -1,6 +1,6 @@
 import { Spin } from 'antd'
 import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from './useAuth'
+import { useAuth } from '../store/Auth'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()

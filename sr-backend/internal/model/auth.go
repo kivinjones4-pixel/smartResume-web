@@ -37,9 +37,41 @@ func (RefreshToken) TableName() string {
 }
 
 type UserProfile struct {
-	ID       string `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	UserID   string `gorm:"column:user_id;type:uuid;not null;unique"`
-	FullName string `gorm:"column:full_name;size:100;not null"`
+	ID                string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID            string     `gorm:"column:user_id;type:uuid;not null;unique" json:"user_id"`
+	FullName          string     `gorm:"column:full_name;size:100;not null" json:"full_name"`
+	AvatarURL         *string    `gorm:"column:avatar_url" json:"avatar_url"`
+	Headline          *string    `gorm:"column:headline;size:200" json:"headline"`
+	Gender            *string    `gorm:"column:gender;size:20" json:"gender"`
+	BirthDate         *time.Time `gorm:"column:birth_date;type:date" json:"birth_date"`
+	Location          *string    `gorm:"column:location;size:150" json:"location"`
+	ContactEmail      *string    `gorm:"column:contact_email;size:320" json:"contact_email"`
+	ContactPhone      *string    `gorm:"column:contact_phone;size:32" json:"contact_phone"`
+	WebsiteURL        *string    `gorm:"column:website_url" json:"website_url"`
+	GithubURL         *string    `gorm:"column:github_url" json:"github_url"`
+	LinkedinURL       *string    `gorm:"column:linkedin_url" json:"linkedin_url"`
+	Summary           *string    `gorm:"column:summary" json:"summary"`
+	YearsOfExperience *float64   `gorm:"column:years_of_experience" json:"years_of_experience"`
+	CreatedAt         time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt         time.Time  `gorm:"column:updated_at" json:"updated_at"`
+}
+
+type Resume struct {
+	ID             string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID         string    `gorm:"column:user_id;type:uuid;not null" json:"-"`
+	Title          string    `gorm:"column:title;size:150;not null" json:"title"`
+	TargetPosition *string   `gorm:"column:target_position;size:150" json:"target_position"`
+	TargetCompany  *string   `gorm:"column:target_company;size:200" json:"target_company"`
+	TemplateKey    string    `gorm:"column:template_key;size:80;not null" json:"template_key"`
+	LanguageCode   string    `gorm:"column:language_code;size:10;not null" json:"language_code"`
+	Status         string    `gorm:"column:status;size:20;not null" json:"status"`
+	IsDefault      bool      `gorm:"column:is_default;not null" json:"is_default"`
+	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (Resume) TableName() string {
+	return "resumes"
 }
 
 func (UserProfile) TableName() string {

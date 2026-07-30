@@ -1,5 +1,12 @@
 # 智简 AI 前端 UI Reference
 
+- 项目使用 [Tailwind CSS](https://tailwindcss.com/) 作为 CSS 框架。
+- 项目使用 [Ant Design](https://ant.design/) 作为 UI 组件库。
+- 项目使用 [React](https://reactjs.org/) 作为前端框架。
+
+## 基础规范
+- tailwind尺寸：优先使用tailwind的尺寸，如：w-180，而非w-[720px]具体像素尺寸
+
 ## 简历工作台
 
 - 技术栈统一使用 React、Ant Design 和 Tailwind CSS。

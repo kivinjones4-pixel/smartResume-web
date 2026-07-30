@@ -33,6 +33,8 @@ func main() {
 
 	authService := service.NewAuthService(postgresDB.DB, cfg.Auth)
 	authHandler := handler.NewAuthHandler(authService, cfg.Auth)
+	resumeService := service.NewResumeService(postgresDB.DB)
+	resumeHandler := handler.NewResumeHandler(resumeService)
 
 	r.GET("/ping", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
@@ -59,6 +61,16 @@ func main() {
 		authRoutes.POST("/refresh", authHandler.Refresh)
 		authRoutes.POST("/logout", authHandler.Logout)
 		authRoutes.GET("/me", middleware.RequireAuth(authService), authHandler.Me)
+	}
+
+	apiRoutes := r.Group("/api/v1", middleware.RequireAuth(authService))
+	{
+		apiRoutes.GET("/resumes", resumeHandler.List)
+		apiRoutes.POST("/resumes", resumeHandler.Create)
+		apiRoutes.PATCH("/resumes/:id", resumeHandler.Rename)
+		apiRoutes.DELETE("/resumes/:id", resumeHandler.Delete)
+		apiRoutes.GET("/profile/basic", resumeHandler.BasicProfile)
+		apiRoutes.PUT("/profile/basic", resumeHandler.SaveBasicProfile)
 	}
 
 	log.Printf(

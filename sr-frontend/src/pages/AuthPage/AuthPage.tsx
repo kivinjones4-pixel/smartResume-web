@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons'
 import { Alert, Button, Checkbox, Form, Input, Typography } from 'antd'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../auth/useAuth'
+import { useAuth } from '../../store/Auth'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -74,16 +74,16 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 
   return (
     <main className="grid min-h-screen grid-cols-[1.05fr_0.95fr] bg-white max-[900px]:grid-cols-1">
-      <section className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-[#29264f] via-[#343066] to-[#5b5ce2] px-[8vw] py-10 text-white max-[900px]:hidden">
+      <section className="relative flex min-h-screen flex-col overflow-hidden bg-linear-to-br from-[#29264f] via-[#343066] to-[#5b5ce2] px-[8vw] py-10 text-white max-[900px]:hidden">
         <div className="absolute -top-20 -left-20 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
-        <div className="absolute right-[-80px] bottom-10 h-96 w-96 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="absolute -bg-conic-300right-20 bottom-10 h-96 w-96 rounded-full bg-cyan-300/10 blur-3xl" />
         <Link to="/" className="relative z-10 flex w-fit items-center gap-3 text-xl font-bold text-white">
           <span className="brand-mark">
             <ThunderboltOutlined />
           </span>
           智简 AI
         </Link>
-        <div className="relative z-10 my-auto max-w-[520px]">
+        <div className="relative z-10 my-auto max-w-130">
           <span className="mb-6 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs tracking-wider text-indigo-100">
             AI RESUME BUILDER
           </span>
@@ -92,7 +92,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             <br />
             让好机会找到你。
           </h1>
-          <p className="mt-6 max-w-[460px] text-base leading-8 text-indigo-100/75">
+          <p className="mt-6 max-w-115 text-base leading-8 text-indigo-100/75">
             智能润色、专业模板与专属数字人，帮你更高效地完成求职展示。
           </p>
           <div className="mt-12 grid grid-cols-3 gap-6 border-t border-white/15 pt-8">
@@ -114,7 +114,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       </section>
 
       <section className="flex min-h-screen items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[420px]">
+        <div className="w-full max-w-105">
           <Link
             to="/"
             className="mb-12 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-indigo-600 min-[901px]:hidden"

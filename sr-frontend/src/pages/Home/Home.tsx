@@ -26,8 +26,8 @@ import {
   type MenuProps,
 } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from './auth/useAuth'
-import './App.css'
+import { useAuth } from '../../store/Auth'
+import '../../App.css'
 
 const { Title, Paragraph, Text } = Typography
 

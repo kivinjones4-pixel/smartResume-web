@@ -2,10 +2,11 @@ import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './index.css'
-import App from './App.tsx'
-import { AuthProvider } from './auth/AuthContext.tsx'
-import ProtectedRoute from './auth/ProtectedRoute.tsx'
+import Home from './pages/Home/Home.tsx'
+import { AuthProvider } from './store/Auth.ts'
+import ProtectedRoute from './components/ProtectedRoute.tsx'
 import AuthPage from './pages/AuthPage/AuthPage.tsx'
+import { ResumeProvider } from './store/Resume.ts'
 
 export const ResumeWorkspace = lazy(() => import('./pages/ResumeWorkspace/ResumeWorkspace.tsx'))
 
@@ -21,14 +22,16 @@ createRoot(document.getElementById('root')!).render(
           }
         >
           <Routes>
-            <Route path="/" element={<App />} />
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<AuthPage mode="login" />} />
             <Route path="/register" element={<AuthPage mode="register" />} />
             <Route
               path="/resume"
               element={
                 <ProtectedRoute>
-                  <ResumeWorkspace />
+                  <ResumeProvider>
+                    <ResumeWorkspace />
+                  </ResumeProvider>
                 </ProtectedRoute>
               }
             />

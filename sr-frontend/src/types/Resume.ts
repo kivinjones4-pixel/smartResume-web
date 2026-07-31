@@ -97,6 +97,63 @@ export type SaveInternshipValues = Omit<InternshipFormValues, 'achievements'> & 
   achievements: string[]
 }
 
+export type WorkExperience = Internship
+export type WorkFormValues = InternshipFormValues
+export type SaveWorkValues = SaveInternshipValues
+
+export type ProjectExperience = {
+  id: string
+  project_name: string
+  role_name: string
+  project_url: string | null
+  repository_url: string | null
+  start_date: string | null
+  end_date: string | null
+  is_current: boolean
+  achievements: string[]
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ProjectFormValues = {
+  project_name: string
+  role_name: string
+  project_url?: string
+  repository_url?: string
+  start_date: string
+  end_date?: string
+  is_current: boolean
+  achievements?: string
+  description?: string
+}
+
+export type SaveProjectValues = Omit<ProjectFormValues, 'achievements'> & {
+  resume_id: string
+  achievements: string[]
+}
+
+export type Award = {
+  id: string
+  award_name: string
+  issuer: string
+  certificate_url: string | null
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AwardFormValues = {
+  award_name: string
+  issuer: string
+  certificate_url?: string
+  description?: string
+}
+
+export type SaveAwardValues = AwardFormValues & {
+  resume_id: string
+}
+
 export type ResumeStoreValue = {
   resumes: Resume[]
   profile: UserProfile | null

@@ -9,6 +9,7 @@ import (
 
 	"sr-backend/internal/middleware"
 	"sr-backend/internal/service"
+	"sr-backend/pkg/response"
 )
 
 type ResumeHandler struct {
@@ -47,30 +48,30 @@ func NewResumeHandler(service *service.ResumeService) *ResumeHandler {
 func (h *ResumeHandler) List(c *gin.Context) {
 	resumes, err := h.service.List(c.GetString(middleware.UserIDKey))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取简历列表失败"})
+		response.Error(c, http.StatusInternalServerError, "RESUME_LIST_FAILED", "获取简历列表失败")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"resumes": resumes})
+	response.Success(c, gin.H{"resumes": resumes})
 }
 
 func (h *ResumeHandler) Create(c *gin.Context) {
 	var req createResumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "简历名称不能超过 150 个字符"})
+		response.Error(c, http.StatusBadRequest, "INVALID_RESUME_TITLE", "简历名称不能超过 150 个字符")
 		return
 	}
 	resume, err := h.service.Create(c.GetString(middleware.UserIDKey), req.Title)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "新建简历失败"})
+		response.Error(c, http.StatusInternalServerError, "RESUME_CREATE_FAILED", "新建简历失败")
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"resume": resume})
+	response.Created(c, gin.H{"resume": resume})
 }
 
 func (h *ResumeHandler) Rename(c *gin.Context) {
 	var req renameResumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Title) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请输入 1–150 个字符的简历标题"})
+		response.Error(c, http.StatusBadRequest, "INVALID_RESUME_TITLE", "请输入 1–150 个字符的简历标题")
 		return
 	}
 	resume, err := h.service.Rename(
@@ -79,36 +80,36 @@ func (h *ResumeHandler) Rename(c *gin.Context) {
 		req.Title,
 	)
 	if errors.Is(err, service.ErrResumeNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		response.Error(c, http.StatusNotFound, "RESUME_NOT_FOUND", err.Error())
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "修改简历标题失败"})
+		response.Error(c, http.StatusInternalServerError, "RESUME_RENAME_FAILED", "修改简历标题失败")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"resume": resume})
+	response.Success(c, gin.H{"resume": resume})
 }
 
 func (h *ResumeHandler) Delete(c *gin.Context) {
 	err := h.service.Delete(c.GetString(middleware.UserIDKey), c.Param("id"))
 	if errors.Is(err, service.ErrResumeNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		response.Error(c, http.StatusNotFound, "RESUME_NOT_FOUND", err.Error())
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "删除简历失败"})
+		response.Error(c, http.StatusInternalServerError, "RESUME_DELETE_FAILED", "删除简历失败")
 		return
 	}
-	c.Status(http.StatusNoContent)
+	response.Success(c, gin.H{})
 }
 
 func (h *ResumeHandler) BasicProfile(c *gin.Context) {
 	profile, err := h.service.BasicProfile(c.GetString(middleware.UserIDKey))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取基本信息失败"})
+		response.Error(c, http.StatusInternalServerError, "PROFILE_READ_FAILED", "获取基本信息失败")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"profile": profile})
+	response.Success(c, gin.H{"profile": profile})
 }
 
 func (h *ResumeHandler) SaveBasicProfile(c *gin.Context) {
@@ -116,7 +117,7 @@ func (h *ResumeHandler) SaveBasicProfile(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil ||
 		strings.TrimSpace(req.FullName) == "" ||
 		strings.TrimSpace(req.TargetPosition) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "真实姓名、性别和求职方向为必填项"})
+		response.Error(c, http.StatusBadRequest, "INVALID_PROFILE_INPUT", "真实姓名、性别和求职方向为必填项")
 		return
 	}
 	err := h.service.SaveBasicProfile(c.GetString(middleware.UserIDKey), service.BasicProfileInput{
@@ -127,12 +128,12 @@ func (h *ResumeHandler) SaveBasicProfile(c *gin.Context) {
 		LinkedinURL: req.LinkedinURL, Summary: req.Summary, YearsExperience: req.YearsExperience,
 	})
 	if errors.Is(err, service.ErrResumeNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		response.Error(c, http.StatusNotFound, "RESUME_NOT_FOUND", err.Error())
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "保存基本信息失败"})
+		response.Error(c, http.StatusInternalServerError, "PROFILE_SAVE_FAILED", "保存基本信息失败")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "基本信息已保存"})
+	response.Success(c, gin.H{})
 }

@@ -9,7 +9,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center bg-slate-50">
-        <Spin size="large" tip="正在恢复登录状态…" />
+        <Spin size="large" description="正在恢复登录状态…" />
       </div>
     )
   }

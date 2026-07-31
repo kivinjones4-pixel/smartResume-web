@@ -70,6 +70,26 @@ type Resume struct {
 	UpdatedAt      time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
+type Education struct {
+	ID           string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID       string     `gorm:"column:user_id;type:uuid;not null" json:"-"`
+	SchoolName   string     `gorm:"column:school_name;size:200;not null" json:"school_name"`
+	Degree       *string    `gorm:"column:degree;size:100" json:"degree"`
+	FieldOfStudy *string    `gorm:"column:field_of_study;size:150" json:"field_of_study"`
+	Location     *string    `gorm:"column:location;size:150" json:"location"`
+	StartDate    *time.Time `gorm:"column:start_date;type:date;not null" json:"start_date"`
+	EndDate      *time.Time `gorm:"column:end_date;type:date" json:"end_date"`
+	IsCurrent    bool       `gorm:"column:is_current;not null" json:"is_current"`
+	GPA          *string    `gorm:"column:gpa;size:32" json:"gpa"`
+	Description  *string    `gorm:"column:description" json:"description"`
+	CreatedAt    time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (Education) TableName() string {
+	return "educations"
+}
+
 func (Resume) TableName() string {
 	return "resumes"
 }

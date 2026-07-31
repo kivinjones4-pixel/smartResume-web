@@ -13,6 +13,7 @@ import (
 	"sr-backend/internal/middleware"
 	"sr-backend/internal/model"
 	"sr-backend/internal/service"
+	"sr-backend/pkg/response"
 )
 
 const refreshCookieName = "sr_refresh_token"
@@ -40,12 +41,12 @@ func NewAuthHandler(auth *service.AuthService, cfg config.AuthConfig) *AuthHandl
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req registerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请填写有效的邮箱、用户名和至少 8 位密码"})
+		response.Error(c, http.StatusBadRequest, "INVALID_REGISTER_INPUT", "请填写有效的邮箱、用户名和至少 8 位密码")
 		return
 	}
 	address, err := mail.ParseAddress(strings.TrimSpace(req.Email))
 	if err != nil || address.Address != strings.TrimSpace(req.Email) {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "邮箱格式不正确"})
+		response.Error(c, http.StatusBadRequest, "INVALID_EMAIL", "邮箱格式不正确")
 		return
 	}
 	req.Email = address.Address
@@ -56,17 +57,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	pair, err := h.auth.IssueTokenPair(user, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "注册成功，但登录凭证生成失败"})
+		response.Error(c, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "注册成功，但登录凭证生成失败")
 		return
 	}
 	h.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiresAt)
-	c.JSON(http.StatusCreated, tokenResponse(user, pair))
+	response.Created(c, tokenResponse(user, pair))
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请输入邮箱或手机号和密码"})
+		response.Error(c, http.StatusBadRequest, "INVALID_LOGIN_INPUT", "请输入邮箱或手机号和密码")
 		return
 	}
 	user, err := h.auth.Login(req.Identifier, req.Password)
@@ -76,56 +77,56 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	pair, err := h.auth.IssueTokenPair(user, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "登录失败，请稍后重试"})
+		response.Error(c, http.StatusInternalServerError, "LOGIN_FAILED", "登录失败，请稍后重试")
 		return
 	}
 	h.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiresAt)
-	c.JSON(http.StatusOK, tokenResponse(user, pair))
+	response.Success(c, tokenResponse(user, pair))
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	rawToken, err := c.Cookie(refreshCookieName)
 	if err != nil || rawToken == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "登录状态已过期"})
+		response.Error(c, http.StatusUnauthorized, "REFRESH_TOKEN_MISSING", "登录状态已过期")
 		return
 	}
 	user, pair, err := h.auth.RotateRefreshToken(rawToken, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
 		h.clearRefreshCookie(c)
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "登录状态已过期，请重新登录"})
+		response.Error(c, http.StatusUnauthorized, "REFRESH_TOKEN_INVALID", "登录状态已过期，请重新登录")
 		return
 	}
 	h.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiresAt)
-	c.JSON(http.StatusOK, tokenResponse(user, pair))
+	response.Success(c, tokenResponse(user, pair))
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	rawToken, _ := c.Cookie(refreshCookieName)
 	h.auth.RevokeRefreshToken(rawToken)
 	h.clearRefreshCookie(c)
-	c.Status(http.StatusNoContent)
+	response.Success(c, gin.H{})
 }
 
 func (h *AuthHandler) Me(c *gin.Context) {
 	userID := c.GetString(middleware.UserIDKey)
 	user, err := h.auth.UserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户不存在或已停用"})
+		response.Error(c, http.StatusUnauthorized, "USER_UNAVAILABLE", "用户不存在或已停用")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": publicUser(user)})
+	response.Success(c, gin.H{"user": publicUser(user)})
 }
 
 func (h *AuthHandler) authError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, service.ErrInvalidCredentials):
-		c.JSON(http.StatusUnauthorized, gin.H{"message": err.Error()})
+		response.Error(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", err.Error())
 	case errors.Is(err, service.ErrAccountDisabled):
-		c.JSON(http.StatusForbidden, gin.H{"message": err.Error()})
+		response.Error(c, http.StatusForbidden, "ACCOUNT_DISABLED", err.Error())
 	case errors.Is(err, service.ErrEmailExists), errors.Is(err, service.ErrUsernameExists):
-		c.JSON(http.StatusConflict, gin.H{"message": err.Error()})
+		response.Error(c, http.StatusConflict, "ACCOUNT_CONFLICT", err.Error())
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务暂时不可用"})
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务暂时不可用")
 	}
 }
 

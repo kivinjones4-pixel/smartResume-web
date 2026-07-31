@@ -1,14 +1,22 @@
-type ErrorResponse = {
-  message?: string
+type ApiEnvelope<T> = {
+  code: number
+  msg: string
+  data: T
+}
+
+type ErrorData = {
+  error_code?: string
 }
 
 export class ApiError extends Error {
   status: number
+  code: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code = 'UNKNOWN_ERROR') {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
   }
 }
 
@@ -52,22 +60,32 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
-  const response = await fetch(path, {
-    ...init,
-    headers,
-    credentials: 'include',
-  })
+  let response: Response
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers,
+      credentials: 'include',
+    })
+  } catch {
+    throw new ApiError('网络连接失败，请检查网络后重试', 0, 'NETWORK_ERROR')
+  }
 
   if (response.status === 401 && !skipRefresh && (await refreshOnce())) {
     return request<T>(path, { ...options, skipRefresh: true })
   }
 
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ErrorResponse
-    throw new ApiError(body.message || '请求失败，请稍后重试', response.status)
-  }
   if (response.status === 204) return undefined as T
-  return response.json() as Promise<T>
+  const body = (await response.json().catch(() => null)) as ApiEnvelope<T | ErrorData> | null
+  if (!response.ok || !body || body.code !== 0) {
+    const errorData = body?.data as ErrorData | undefined
+    throw new ApiError(
+      body?.msg || '请求失败，请稍后重试',
+      response.status,
+      errorData?.error_code,
+    )
+  }
+  return body.data as T
 }
 
 export const http = {

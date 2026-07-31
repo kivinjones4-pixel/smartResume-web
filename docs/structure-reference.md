@@ -7,6 +7,7 @@
   2. 子页面可放在src/pages/`${ParentName}`/children目录下，命名为`${ChildName}.tsx`，如`ResumeList.tsx`，大驼峰命名；
   3. 各页面尽量拆分组件，组件一律放在各页面与tsx同级的components目录下；
   4. 非必要无需css/scss文件，直接使用tailwind
+  5. 组件拆分基本判断：表单、侧边栏、列表、复杂卡片等，若组件库存在则优先使用组件库组件
 
 - 架构规范
   1. 各模块 API 请求统一放在 `src/services` 目录下，命名为 `${ModuleName}.ts`

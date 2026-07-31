@@ -34,6 +34,69 @@ export type BasicProfileValues = Omit<UserProfile, 'id' | 'user_id' | 'avatar_ur
   target_position: string
 }
 
+export type Education = {
+  id: string
+  school_name: string
+  degree: string | null
+  field_of_study: string | null
+  location: string | null
+  start_date: string | null
+  end_date: string | null
+  is_current: boolean
+  gpa: string | null
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type EducationFormValues = {
+  school_name: string
+  degree?: string
+  field_of_study?: string
+  location?: string
+  start_date: string
+  end_date?: string
+  is_current: boolean
+  gpa?: string
+  description?: string
+}
+
+export type SaveEducationValues = EducationFormValues & {
+  resume_id: string
+}
+
+export type Internship = {
+  id: string
+  company_name: string
+  position_title: string
+  department: string | null
+  location: string | null
+  start_date: string | null
+  end_date: string | null
+  is_current: boolean
+  achievements: string[]
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type InternshipFormValues = {
+  company_name: string
+  position_title: string
+  department?: string
+  location?: string
+  start_date: string
+  end_date?: string
+  is_current: boolean
+  achievements?: string
+  description?: string
+}
+
+export type SaveInternshipValues = Omit<InternshipFormValues, 'achievements'> & {
+  resume_id: string
+  achievements: string[]
+}
+
 export type ResumeStoreValue = {
   resumes: Resume[]
   profile: UserProfile | null

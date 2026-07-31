@@ -43,28 +43,55 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/Auth'
 import { useResumeStore } from '../../store/Resume'
 import {
+  attachAward,
   attachEducation,
   attachInternship,
+  attachProjectExperience,
+  attachWorkExperience,
   createEducation,
+  createAward,
   createInternship,
+  createProjectExperience,
+  createWorkExperience,
   deleteEducation,
+  deleteAward,
   deleteInternship,
+  deleteProjectExperience,
+  deleteWorkExperience,
   detachEducation,
+  detachAward,
   detachInternship,
+  detachProjectExperience,
+  detachWorkExperience,
   listAllEducations,
+  listAllAwards,
   listAllInternships,
   listEducations,
+  listAwards,
   listInternships,
+  listAllProjectExperiences,
+  listAllWorkExperiences,
+  listProjectExperiences,
+  listWorkExperiences,
   updateEducation,
+  updateAward,
   updateInternship,
+  updateProjectExperience,
+  updateWorkExperience,
 } from '../../services/Resume'
 import type {
+  Award,
+  AwardFormValues,
   BasicProfileValues,
   Education,
   EducationFormValues,
   Internship,
   InternshipFormValues,
+  ProjectExperience,
+  ProjectFormValues,
   Resume,
+  WorkExperience,
+  WorkFormValues,
 } from '../../types/Resume'
 import type { ResumeModuleKey } from '../../types/ResumeWorkspace'
 import { getErrorMessage, isFormValidationError } from '../../utils/error'
@@ -87,12 +114,8 @@ const modules: {
   { key: 'award', label: '获奖记录', icon: <TrophyOutlined />, multiple: true },
 ]
 
-const records: Record<Exclude<ResumeModuleKey, 'education'>, string[]> = {
+const records: Record<Exclude<ResumeModuleKey, 'education' | 'internship' | 'work' | 'project' | 'award'>, string[]> = {
   profile: ['个人基本信息'],
-  internship: ['字节跳动 · 产品实习生', '腾讯 · 产品策划实习生'],
-  work: ['智云科技 · 高级产品经理', '星海科技 · 产品经理'],
-  project: ['AI 智能简历平台', '企业知识库 Copilot'],
-  award: ['全国大学生创新创业大赛金奖', '优秀毕业生'],
 }
 
 const navItems = [
@@ -122,6 +145,9 @@ function ResumeWorkspace() {
   const [profileForm] = Form.useForm<BasicProfileValues>()
   const educationFormRef = useRef<FormInstance<EducationFormValues>>(null)
   const internshipFormRef = useRef<FormInstance<InternshipFormValues>>(null)
+  const workFormRef = useRef<FormInstance<WorkFormValues>>(null)
+  const projectFormRef = useRef<FormInstance<ProjectFormValues>>(null)
+  const awardFormRef = useRef<FormInstance<AwardFormValues>>(null)
   const [educations, setEducations] = useState<Education[]>([])
   const [currentEducationIds, setCurrentEducationIds] = useState<string[]>([])
   const [educationScope, setEducationScope] = useState<'current' | 'all'>('current')
@@ -134,6 +160,24 @@ function ResumeWorkspace() {
   const [selectedInternshipId, setSelectedInternshipId] = useState('')
   const [internshipLoading, setInternshipLoading] = useState(false)
   const [creatingInternship, setCreatingInternship] = useState(false)
+  const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([])
+  const [currentWorkIds, setCurrentWorkIds] = useState<string[]>([])
+  const [workScope, setWorkScope] = useState<'current' | 'all'>('current')
+  const [selectedWorkId, setSelectedWorkId] = useState('')
+  const [workLoading, setWorkLoading] = useState(false)
+  const [creatingWork, setCreatingWork] = useState(false)
+  const [projectExperiences, setProjectExperiences] = useState<ProjectExperience[]>([])
+  const [currentProjectIds, setCurrentProjectIds] = useState<string[]>([])
+  const [projectScope, setProjectScope] = useState<'current' | 'all'>('current')
+  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [projectLoading, setProjectLoading] = useState(false)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [awards, setAwards] = useState<Award[]>([])
+  const [currentAwardIds, setCurrentAwardIds] = useState<string[]>([])
+  const [awardScope, setAwardScope] = useState<'current' | 'all'>('current')
+  const [selectedAwardId, setSelectedAwardId] = useState('')
+  const [awardLoading, setAwardLoading] = useState(false)
+  const [creatingAward, setCreatingAward] = useState(false)
   const [activeModule, setActiveModule] = useState<ResumeModuleKey>('profile')
   const [recordIndex, setRecordIndex] = useState(0)
   const [editorCollapsed, setEditorCollapsed] = useState(false)
@@ -197,6 +241,41 @@ function ResumeWorkspace() {
   useEffect(() => {
     if (!selectedResumeId) {
       void Promise.resolve().then(() => {
+        setWorkExperiences([])
+        setCurrentWorkIds([])
+        setSelectedWorkId('')
+        setCreatingWork(false)
+      })
+      return
+    }
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setWorkLoading(true)
+      void Promise.all([listAllWorkExperiences(), listWorkExperiences(selectedResumeId)])
+        .then(([allItems, currentItems]) => {
+          if (cancelled) return
+          setWorkExperiences(allItems)
+          setCurrentWorkIds(currentItems.map((item) => item.id))
+          setSelectedWorkId(currentItems[0]?.id ?? '')
+          setWorkScope('current')
+          setCreatingWork(false)
+        })
+        .catch((error) => {
+          if (!cancelled) message.error(getErrorMessage(error, '加载工作经历失败'))
+        })
+        .finally(() => {
+          if (!cancelled) setWorkLoading(false)
+        })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedResumeId])
+
+  useEffect(() => {
+    if (!selectedResumeId) {
+      void Promise.resolve().then(() => {
         setInternships([])
         setCurrentInternshipIds([])
         setSelectedInternshipId('')
@@ -230,6 +309,79 @@ function ResumeWorkspace() {
     }
   }, [selectedResumeId])
 
+  useEffect(() => {
+    if (!selectedResumeId) {
+      void Promise.resolve().then(() => {
+        setProjectExperiences([])
+        setCurrentProjectIds([])
+        setSelectedProjectId('')
+        setCreatingProject(false)
+      })
+      return
+    }
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setProjectLoading(true)
+      void Promise.all([
+        listAllProjectExperiences(),
+        listProjectExperiences(selectedResumeId),
+      ])
+        .then(([allItems, currentItems]) => {
+          if (cancelled) return
+          setProjectExperiences(allItems)
+          setCurrentProjectIds(currentItems.map((item) => item.id))
+          setSelectedProjectId(currentItems[0]?.id ?? '')
+          setProjectScope('current')
+          setCreatingProject(false)
+        })
+        .catch((error) => {
+          if (!cancelled) message.error(getErrorMessage(error, '加载项目经历失败'))
+        })
+        .finally(() => {
+          if (!cancelled) setProjectLoading(false)
+        })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedResumeId])
+
+  useEffect(() => {
+    if (!selectedResumeId) {
+      void Promise.resolve().then(() => {
+        setAwards([])
+        setCurrentAwardIds([])
+        setSelectedAwardId('')
+        setCreatingAward(false)
+      })
+      return
+    }
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setAwardLoading(true)
+      void Promise.all([listAllAwards(), listAwards(selectedResumeId)])
+        .then(([allItems, currentItems]) => {
+          if (cancelled) return
+          setAwards(allItems)
+          setCurrentAwardIds(currentItems.map((item) => item.id))
+          setSelectedAwardId(currentItems[0]?.id ?? '')
+          setAwardScope('current')
+          setCreatingAward(false)
+        })
+        .catch((error) => {
+          if (!cancelled) message.error(getErrorMessage(error, '加载获奖记录失败'))
+        })
+        .finally(() => {
+          if (!cancelled) setAwardLoading(false)
+        })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedResumeId])
+
   const currentEducations = educations.filter((education) =>
     currentEducationIds.includes(education.id),
   )
@@ -249,6 +401,30 @@ function ResumeWorkspace() {
   const selectedInternshipIsCurrent = selectedInternship
     ? currentInternshipIds.includes(selectedInternship.id)
     : false
+  const currentWorkExperiences = workExperiences.filter((item) =>
+    currentWorkIds.includes(item.id),
+  )
+  const visibleWorkExperiences =
+    workScope === 'current' ? currentWorkExperiences : workExperiences
+  const selectedWork =
+    workExperiences.find((item) => item.id === selectedWorkId) ?? null
+  const selectedWorkIsCurrent = selectedWork ? currentWorkIds.includes(selectedWork.id) : false
+  const currentProjectExperiences = projectExperiences.filter((item) =>
+    currentProjectIds.includes(item.id),
+  )
+  const visibleProjectExperiences =
+    projectScope === 'current' ? currentProjectExperiences : projectExperiences
+  const selectedProject =
+    projectExperiences.find((item) => item.id === selectedProjectId) ?? null
+  const selectedProjectIsCurrent = selectedProject
+    ? currentProjectIds.includes(selectedProject.id)
+    : false
+  const currentAwards = awards.filter((item) => currentAwardIds.includes(item.id))
+  const visibleAwards = awardScope === 'current' ? currentAwards : awards
+  const selectedAward = awards.find((item) => item.id === selectedAwardId) ?? null
+  const selectedAwardIsCurrent = selectedAward
+    ? currentAwardIds.includes(selectedAward.id)
+    : false
 
   const reusableExperienceEmpty =
     (activeModule === 'education' &&
@@ -258,7 +434,19 @@ function ResumeWorkspace() {
     (activeModule === 'internship' &&
       !internshipLoading &&
       visibleInternships.length === 0 &&
-      !creatingInternship)
+      !creatingInternship) ||
+    (activeModule === 'work' &&
+      !workLoading &&
+      visibleWorkExperiences.length === 0 &&
+      !creatingWork) ||
+    (activeModule === 'project' &&
+      !projectLoading &&
+      visibleProjectExperiences.length === 0 &&
+      !creatingProject) ||
+    (activeModule === 'award' &&
+      !awardLoading &&
+      visibleAwards.length === 0 &&
+      !creatingAward)
 
   const gridTemplate = useMemo(() => {
     const editorWidth = editorCollapsed ? '0px' : '360px'
@@ -297,6 +485,126 @@ function ResumeWorkspace() {
   }
 
   const handleSave = async () => {
+    if (activeModule === 'award') {
+      if (!selectedResumeId) {
+        message.warning('请先新建或选择一份简历')
+        return
+      }
+      try {
+        const values = await awardFormRef.current?.validateFields()
+        if (!values) return
+        const payload = {
+          ...values,
+          resume_id: selectedResumeId,
+        }
+        const saved = creatingAward
+          ? await createAward(payload)
+          : await updateAward(selectedAwardId, payload)
+        setAwards((current) =>
+          creatingAward
+            ? [...current, saved]
+            : current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        if (creatingAward) {
+          setCurrentAwardIds((current) =>
+            current.includes(saved.id) ? current : [...current, saved.id],
+          )
+          setAwardScope('current')
+        }
+        setSelectedAwardId(saved.id)
+        setCreatingAward(false)
+        message.success(creatingAward ? '获奖记录已新增' : '获奖记录已保存')
+      } catch (error) {
+        if (!isFormValidationError(error)) {
+          message.error(getErrorMessage(error, '保存获奖记录失败'))
+        }
+      }
+      return
+    }
+    if (activeModule === 'project') {
+      if (!selectedResumeId) {
+        message.warning('请先新建或选择一份简历')
+        return
+      }
+      try {
+        const values = await projectFormRef.current?.validateFields()
+        if (!values) return
+        const payload = {
+          ...values,
+          resume_id: selectedResumeId,
+          start_date: `${values.start_date}-01`,
+          end_date: values.is_current || !values.end_date ? undefined : `${values.end_date}-01`,
+          achievements: (values.achievements ?? '')
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }
+        const saved = creatingProject
+          ? await createProjectExperience(payload)
+          : await updateProjectExperience(selectedProjectId, payload)
+        setProjectExperiences((current) =>
+          creatingProject
+            ? [...current, saved]
+            : current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        if (creatingProject) {
+          setCurrentProjectIds((current) =>
+            current.includes(saved.id) ? current : [...current, saved.id],
+          )
+          setProjectScope('current')
+        }
+        setSelectedProjectId(saved.id)
+        setCreatingProject(false)
+        message.success(creatingProject ? '项目经历已新增' : '项目经历已保存')
+      } catch (error) {
+        if (!isFormValidationError(error)) {
+          message.error(getErrorMessage(error, '保存项目经历失败'))
+        }
+      }
+      return
+    }
+    if (activeModule === 'work') {
+      if (!selectedResumeId) {
+        message.warning('请先新建或选择一份简历')
+        return
+      }
+      try {
+        const values = await workFormRef.current?.validateFields()
+        if (!values) return
+        const payload = {
+          ...values,
+          resume_id: selectedResumeId,
+          start_date: `${values.start_date}-01`,
+          end_date: values.is_current || !values.end_date ? undefined : `${values.end_date}-01`,
+          achievements: (values.achievements ?? '')
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }
+        const saved = creatingWork
+          ? await createWorkExperience(payload)
+          : await updateWorkExperience(selectedWorkId, payload)
+        setWorkExperiences((current) =>
+          creatingWork
+            ? [...current, saved]
+            : current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        if (creatingWork) {
+          setCurrentWorkIds((current) =>
+            current.includes(saved.id) ? current : [...current, saved.id],
+          )
+          setWorkScope('current')
+        }
+        setSelectedWorkId(saved.id)
+        setCreatingWork(false)
+        message.success(creatingWork ? '工作经历已新增' : '工作经历已保存')
+      } catch (error) {
+        if (!isFormValidationError(error)) {
+          message.error(getErrorMessage(error, '保存工作经历失败'))
+        }
+      }
+      return
+    }
     if (activeModule === 'internship') {
       if (!selectedResumeId) {
         message.warning('请先新建或选择一份简历')
@@ -568,6 +876,254 @@ function ResumeWorkspace() {
     })
   }
 
+  const startCreatingWork = () => {
+    if (!selectedResumeId) {
+      message.warning('请先新建或选择一份简历')
+      return
+    }
+    setCreatingWork(true)
+    setSelectedWorkId('')
+  }
+
+  const cancelWorkEdit = () => {
+    setCreatingWork(false)
+    setSelectedWorkId(visibleWorkExperiences[0]?.id ?? '')
+  }
+
+  const changeWorkScope = (scope: 'current' | 'all') => {
+    setWorkScope(scope)
+    setCreatingWork(false)
+    const items = scope === 'current' ? currentWorkExperiences : workExperiences
+    const item = items.find((entry) => entry.id === selectedWorkId) ?? items[0]
+    setSelectedWorkId(item?.id ?? '')
+  }
+
+  const handleAttachWork = async () => {
+    if (!selectedResumeId || !selectedWork || selectedWorkIsCurrent) return
+    setWorkLoading(true)
+    try {
+      await attachWorkExperience(selectedResumeId, selectedWork.id)
+      setCurrentWorkIds((current) => [...current, selectedWork.id])
+      message.success('已加入当前简历')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加入当前简历失败'))
+    } finally {
+      setWorkLoading(false)
+    }
+  }
+
+  const handleDetachWork = async () => {
+    if (!selectedResumeId || !selectedWork || !selectedWorkIsCurrent) return
+    setWorkLoading(true)
+    try {
+      await detachWorkExperience(selectedResumeId, selectedWork.id)
+      const remainingIds = currentWorkIds.filter((id) => id !== selectedWork.id)
+      setCurrentWorkIds(remainingIds)
+      setSelectedWorkId(workExperiences.find((item) => remainingIds.includes(item.id))?.id ?? '')
+      message.success('已从当前简历移除，经历仍保留在经历库')
+    } catch (error) {
+      message.error(getErrorMessage(error, '从当前简历移除失败'))
+    } finally {
+      setWorkLoading(false)
+    }
+  }
+
+  const confirmDeleteWork = () => {
+    if (!selectedWork) return
+    Modal.confirm({
+      title: '永久删除这条工作经历？',
+      content: `“${selectedWork.company_name} · ${selectedWork.position_title}”会从所有关联简历中移除，删除后无法恢复。`,
+      okText: '永久删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteWorkExperience(selectedWork.id)
+          const remaining = workExperiences.filter((item) => item.id !== selectedWork.id)
+          setWorkExperiences(remaining)
+          setCurrentWorkIds((current) => current.filter((id) => id !== selectedWork.id))
+          const next =
+            workScope === 'current'
+              ? remaining.find((item) => currentWorkIds.includes(item.id))
+              : remaining[0]
+          setSelectedWorkId(next?.id ?? '')
+          message.success('工作经历已永久删除')
+        } catch (error) {
+          message.error(getErrorMessage(error, '删除工作经历失败'))
+          throw error
+        }
+      },
+    })
+  }
+
+  const startCreatingProject = () => {
+    if (!selectedResumeId) {
+      message.warning('请先新建或选择一份简历')
+      return
+    }
+    setCreatingProject(true)
+    setSelectedProjectId('')
+  }
+
+  const cancelProjectEdit = () => {
+    setCreatingProject(false)
+    setSelectedProjectId(visibleProjectExperiences[0]?.id ?? '')
+  }
+
+  const changeProjectScope = (scope: 'current' | 'all') => {
+    setProjectScope(scope)
+    setCreatingProject(false)
+    const items = scope === 'current' ? currentProjectExperiences : projectExperiences
+    const item = items.find((entry) => entry.id === selectedProjectId) ?? items[0]
+    setSelectedProjectId(item?.id ?? '')
+  }
+
+  const handleAttachProject = async () => {
+    if (!selectedResumeId || !selectedProject || selectedProjectIsCurrent) return
+    setProjectLoading(true)
+    try {
+      await attachProjectExperience(selectedResumeId, selectedProject.id)
+      setCurrentProjectIds((current) => [...current, selectedProject.id])
+      message.success('已加入当前简历')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加入当前简历失败'))
+    } finally {
+      setProjectLoading(false)
+    }
+  }
+
+  const handleDetachProject = async () => {
+    if (!selectedResumeId || !selectedProject || !selectedProjectIsCurrent) return
+    setProjectLoading(true)
+    try {
+      await detachProjectExperience(selectedResumeId, selectedProject.id)
+      const remainingIds = currentProjectIds.filter((id) => id !== selectedProject.id)
+      setCurrentProjectIds(remainingIds)
+      setSelectedProjectId(
+        projectExperiences.find((item) => remainingIds.includes(item.id))?.id ?? '',
+      )
+      message.success('已从当前简历移除，经历仍保留在经历库')
+    } catch (error) {
+      message.error(getErrorMessage(error, '从当前简历移除失败'))
+    } finally {
+      setProjectLoading(false)
+    }
+  }
+
+  const confirmDeleteProject = () => {
+    if (!selectedProject) return
+    Modal.confirm({
+      title: '永久删除这条项目经历？',
+      content: `“${selectedProject.project_name} · ${selectedProject.role_name}”会从所有关联简历中移除，删除后无法恢复。`,
+      okText: '永久删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteProjectExperience(selectedProject.id)
+          const remaining = projectExperiences.filter(
+            (item) => item.id !== selectedProject.id,
+          )
+          setProjectExperiences(remaining)
+          setCurrentProjectIds((current) =>
+            current.filter((id) => id !== selectedProject.id),
+          )
+          const next =
+            projectScope === 'current'
+              ? remaining.find((item) => currentProjectIds.includes(item.id))
+              : remaining[0]
+          setSelectedProjectId(next?.id ?? '')
+          message.success('项目经历已永久删除')
+        } catch (error) {
+          message.error(getErrorMessage(error, '删除项目经历失败'))
+          throw error
+        }
+      },
+    })
+  }
+
+  const startCreatingAward = () => {
+    if (!selectedResumeId) {
+      message.warning('请先新建或选择一份简历')
+      return
+    }
+    setCreatingAward(true)
+    setSelectedAwardId('')
+  }
+
+  const cancelAwardEdit = () => {
+    setCreatingAward(false)
+    setSelectedAwardId(visibleAwards[0]?.id ?? '')
+  }
+
+  const changeAwardScope = (scope: 'current' | 'all') => {
+    setAwardScope(scope)
+    setCreatingAward(false)
+    const items = scope === 'current' ? currentAwards : awards
+    const item = items.find((entry) => entry.id === selectedAwardId) ?? items[0]
+    setSelectedAwardId(item?.id ?? '')
+  }
+
+  const handleAttachAward = async () => {
+    if (!selectedResumeId || !selectedAward || selectedAwardIsCurrent) return
+    setAwardLoading(true)
+    try {
+      await attachAward(selectedResumeId, selectedAward.id)
+      setCurrentAwardIds((current) => [...current, selectedAward.id])
+      message.success('已加入当前简历')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加入当前简历失败'))
+    } finally {
+      setAwardLoading(false)
+    }
+  }
+
+  const handleDetachAward = async () => {
+    if (!selectedResumeId || !selectedAward || !selectedAwardIsCurrent) return
+    setAwardLoading(true)
+    try {
+      await detachAward(selectedResumeId, selectedAward.id)
+      const remainingIds = currentAwardIds.filter((id) => id !== selectedAward.id)
+      setCurrentAwardIds(remainingIds)
+      setSelectedAwardId(awards.find((item) => remainingIds.includes(item.id))?.id ?? '')
+      message.success('已从当前简历移除，记录仍保留在经历库')
+    } catch (error) {
+      message.error(getErrorMessage(error, '从当前简历移除失败'))
+    } finally {
+      setAwardLoading(false)
+    }
+  }
+
+  const confirmDeleteAward = () => {
+    if (!selectedAward) return
+    Modal.confirm({
+      title: '永久删除这条获奖记录？',
+      content: `“${selectedAward.award_name} · ${selectedAward.issuer}”会从所有关联简历中移除，删除后无法恢复。`,
+      okText: '永久删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteAward(selectedAward.id)
+          const remaining = awards.filter((item) => item.id !== selectedAward.id)
+          setAwards(remaining)
+          setCurrentAwardIds((current) =>
+            current.filter((id) => id !== selectedAward.id),
+          )
+          const next =
+            awardScope === 'current'
+              ? remaining.find((item) => currentAwardIds.includes(item.id))
+              : remaining[0]
+          setSelectedAwardId(next?.id ?? '')
+          message.success('获奖记录已永久删除')
+        } catch (error) {
+          message.error(getErrorMessage(error, '删除获奖记录失败'))
+          throw error
+        }
+      },
+    })
+  }
+
   const openRenameModal = (resume: Resume) => {
     setRenameTarget(resume)
     setRenameTitle(resume.title)
@@ -724,7 +1280,10 @@ function ResumeWorkspace() {
 
             {currentModule.multiple &&
               activeModule !== 'education' &&
-              activeModule !== 'internship' && (
+              activeModule !== 'internship' &&
+              activeModule !== 'work' &&
+              activeModule !== 'project' &&
+              activeModule !== 'award' && (
               <div className="border-b border-slate-100 bg-slate-50/70 p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <Text className="text-xs! font-medium! text-slate-500!">选择一条经历</Text>
@@ -736,7 +1295,7 @@ function ResumeWorkspace() {
                   className="w-full"
                   value={recordIndex}
                   onChange={setRecordIndex}
-                  options={records[activeModule as Exclude<ResumeModuleKey, 'education'>].map((label, index) => ({
+                  options={records[activeModule as Exclude<ResumeModuleKey, 'education' | 'internship' | 'work' | 'project' | 'award'>].map((label, index) => ({
                     value: index,
                     label,
                   }))}
@@ -884,6 +1443,207 @@ function ResumeWorkspace() {
               </div>
             )}
 
+            {activeModule === 'work' && (
+              <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+                <Segmented
+                  block
+                  className="mb-3"
+                  value={workScope}
+                  onChange={(value) => changeWorkScope(value as 'current' | 'all')}
+                  options={[
+                    { value: 'current', label: `当前简历 ${currentWorkExperiences.length}` },
+                    { value: 'all', label: `全部经历 ${workExperiences.length}` },
+                  ]}
+                />
+                <div className="mb-2 flex items-center justify-between">
+                  <Text className="text-xs! text-slate-500!">
+                    {workScope === 'current'
+                      ? '本简历采用的工作经历'
+                      : '个人经历库，可在多份简历中复用'}
+                  </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    disabled={!selectedResumeId}
+                    onClick={startCreatingWork}
+                  >
+                    新增
+                  </Button>
+                </div>
+                {visibleWorkExperiences.length > 0 && !creatingWork && (
+                  <Select
+                    className="w-full"
+                    value={selectedWorkId}
+                    loading={workLoading}
+                    onChange={(value) => {
+                      setCreatingWork(false)
+                      setSelectedWorkId(value)
+                    }}
+                    options={visibleWorkExperiences.map((item) => ({
+                      value: item.id,
+                      label: `${item.company_name} · ${item.position_title}${
+                        workScope === 'all' && currentWorkIds.includes(item.id)
+                          ? '（已加入）'
+                          : ''
+                      }`,
+                    }))}
+                  />
+                )}
+                {workScope === 'all' && selectedWork && !creatingWork && (
+                  <Button
+                    block
+                    className="mt-3"
+                    type={selectedWorkIsCurrent ? 'default' : 'primary'}
+                    disabled={selectedWorkIsCurrent}
+                    icon={selectedWorkIsCurrent ? undefined : <PlusOutlined />}
+                    onClick={handleAttachWork}
+                  >
+                    {selectedWorkIsCurrent ? '已加入当前简历' : '加入当前简历'}
+                  </Button>
+                )}
+                {creatingWork && (
+                  <Text className="text-sm! text-indigo-600!">
+                    新增工作经历（保存后自动加入当前简历）
+                  </Text>
+                )}
+              </div>
+            )}
+
+            {activeModule === 'project' && (
+              <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+                <Segmented
+                  block
+                  className="mb-3"
+                  value={projectScope}
+                  onChange={(value) => changeProjectScope(value as 'current' | 'all')}
+                  options={[
+                    { value: 'current', label: `当前简历 ${currentProjectExperiences.length}` },
+                    { value: 'all', label: `全部经历 ${projectExperiences.length}` },
+                  ]}
+                />
+                <div className="mb-2 flex items-center justify-between">
+                  <Text className="text-xs! text-slate-500!">
+                    {projectScope === 'current'
+                      ? '本简历采用的项目经历'
+                      : '个人经历库，可在多份简历中复用'}
+                  </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    disabled={!selectedResumeId}
+                    onClick={startCreatingProject}
+                  >
+                    新增
+                  </Button>
+                </div>
+                {visibleProjectExperiences.length > 0 && !creatingProject && (
+                  <Select
+                    className="w-full"
+                    value={selectedProjectId}
+                    loading={projectLoading}
+                    onChange={(value) => {
+                      setCreatingProject(false)
+                      setSelectedProjectId(value)
+                    }}
+                    options={visibleProjectExperiences.map((item) => ({
+                      value: item.id,
+                      label: `${item.project_name} · ${item.role_name}${
+                        projectScope === 'all' && currentProjectIds.includes(item.id)
+                          ? '（已加入）'
+                          : ''
+                      }`,
+                    }))}
+                  />
+                )}
+                {projectScope === 'all' && selectedProject && !creatingProject && (
+                  <Button
+                    block
+                    className="mt-3"
+                    type={selectedProjectIsCurrent ? 'default' : 'primary'}
+                    disabled={selectedProjectIsCurrent}
+                    icon={selectedProjectIsCurrent ? undefined : <PlusOutlined />}
+                    onClick={handleAttachProject}
+                  >
+                    {selectedProjectIsCurrent ? '已加入当前简历' : '加入当前简历'}
+                  </Button>
+                )}
+                {creatingProject && (
+                  <Text className="text-sm! text-indigo-600!">
+                    新增项目经历（保存后自动加入当前简历）
+                  </Text>
+                )}
+              </div>
+            )}
+
+            {activeModule === 'award' && (
+              <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+                <Segmented
+                  block
+                  className="mb-3"
+                  value={awardScope}
+                  onChange={(value) => changeAwardScope(value as 'current' | 'all')}
+                  options={[
+                    { value: 'current', label: `当前简历 ${currentAwards.length}` },
+                    { value: 'all', label: `全部记录 ${awards.length}` },
+                  ]}
+                />
+                <div className="mb-2 flex items-center justify-between">
+                  <Text className="text-xs! text-slate-500!">
+                    {awardScope === 'current'
+                      ? '本简历采用的获奖记录'
+                      : '个人记录库，可在多份简历中复用'}
+                  </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    disabled={!selectedResumeId}
+                    onClick={startCreatingAward}
+                  >
+                    新增
+                  </Button>
+                </div>
+                {visibleAwards.length > 0 && !creatingAward && (
+                  <Select
+                    className="w-full"
+                    value={selectedAwardId}
+                    loading={awardLoading}
+                    onChange={(value) => {
+                      setCreatingAward(false)
+                      setSelectedAwardId(value)
+                    }}
+                    options={visibleAwards.map((item) => ({
+                      value: item.id,
+                      label: `${item.award_name} · ${item.issuer}${
+                        awardScope === 'all' && currentAwardIds.includes(item.id)
+                          ? '（已加入）'
+                          : ''
+                      }`,
+                    }))}
+                  />
+                )}
+                {awardScope === 'all' && selectedAward && !creatingAward && (
+                  <Button
+                    block
+                    className="mt-3"
+                    type={selectedAwardIsCurrent ? 'default' : 'primary'}
+                    disabled={selectedAwardIsCurrent}
+                    icon={selectedAwardIsCurrent ? undefined : <PlusOutlined />}
+                    onClick={handleAttachAward}
+                  >
+                    {selectedAwardIsCurrent ? '已加入当前简历' : '加入当前简历'}
+                  </Button>
+                )}
+                {creatingAward && (
+                  <Text className="text-sm! text-indigo-600!">
+                    新增获奖记录（保存后自动加入当前简历）
+                  </Text>
+                )}
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto px-5 py-5">
               {reusableExperienceEmpty ? (
                 <Empty
@@ -893,9 +1653,21 @@ function ResumeWorkspace() {
                       ? educationScope === 'current' && educations.length > 0
                         ? '当前简历还没有教育经历，可从经历库中选择'
                         : '还没有教育经历，创建后可在多份简历中复用'
-                      : internshipScope === 'current' && internships.length > 0
-                        ? '当前简历还没有实习经历，可从经历库中选择'
-                        : '还没有实习经历，创建后可在多份简历中复用'
+                      : activeModule === 'internship'
+                        ? internshipScope === 'current' && internships.length > 0
+                          ? '当前简历还没有实习经历，可从经历库中选择'
+                          : '还没有实习经历，创建后可在多份简历中复用'
+                        : activeModule === 'work'
+                          ? workScope === 'current' && workExperiences.length > 0
+                            ? '当前简历还没有工作经历，可从经历库中选择'
+                            : '还没有工作经历，创建后可在多份简历中复用'
+                          : activeModule === 'project'
+                            ? projectScope === 'current' && projectExperiences.length > 0
+                              ? '当前简历还没有项目经历，可从经历库中选择'
+                              : '还没有项目经历，创建后可在多份简历中复用'
+                            : awardScope === 'current' && awards.length > 0
+                              ? '当前简历还没有获奖记录，可从记录库中选择'
+                              : '还没有获奖记录，创建后可在多份简历中复用'
                   }
                 >
                   <Space direction="vertical">
@@ -904,13 +1676,28 @@ function ResumeWorkspace() {
                       educations.length > 0) ||
                       (activeModule === 'internship' &&
                         internshipScope === 'current' &&
-                        internships.length > 0)) && (
+                        internships.length > 0) ||
+                      (activeModule === 'work' &&
+                        workScope === 'current' &&
+                        workExperiences.length > 0) ||
+                      (activeModule === 'project' &&
+                        projectScope === 'current' &&
+                        projectExperiences.length > 0) ||
+                      (activeModule === 'award' &&
+                        awardScope === 'current' &&
+                        awards.length > 0)) && (
                       <Button
                         type="primary"
                         onClick={() =>
                           activeModule === 'education'
                             ? changeEducationScope('all')
-                            : changeInternshipScope('all')
+                            : activeModule === 'internship'
+                              ? changeInternshipScope('all')
+                              : activeModule === 'work'
+                                ? changeWorkScope('all')
+                                : activeModule === 'project'
+                                  ? changeProjectScope('all')
+                                  : changeAwardScope('all')
                         }
                       >
                         从经历库添加
@@ -918,7 +1705,16 @@ function ResumeWorkspace() {
                     )}
                     <Button
                       type={
-                        (activeModule === 'education' ? educations : internships).length === 0
+                        (activeModule === 'education'
+                          ? educations
+                          : activeModule === 'internship'
+                            ? internships
+                            : activeModule === 'work'
+                              ? workExperiences
+                              : activeModule === 'project'
+                                ? projectExperiences
+                                : awards
+                        ).length === 0
                           ? 'primary'
                           : 'default'
                       }
@@ -927,10 +1723,16 @@ function ResumeWorkspace() {
                       onClick={
                         activeModule === 'education'
                           ? startCreatingEducation
-                          : startCreatingInternship
+                          : activeModule === 'internship'
+                            ? startCreatingInternship
+                            : activeModule === 'work'
+                              ? startCreatingWork
+                              : activeModule === 'project'
+                                ? startCreatingProject
+                                : startCreatingAward
                       }
                     >
-                      新增{activeModule === 'education' ? '教育' : '实习'}经历
+                      新增{activeModule === 'award' ? '获奖记录' : `${activeModule === 'education' ? '教育' : activeModule === 'internship' ? '实习' : activeModule === 'work' ? '工作' : '项目'}经历`}
                     </Button>
                   </Space>
                 </Empty>
@@ -948,11 +1750,29 @@ function ResumeWorkspace() {
                         修改经历内容会同步影响所有使用该经历的简历。
                       </div>
                     )}
+                  {activeModule === 'work' && selectedWork && !creatingWork && (
+                    <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                      修改经历内容会同步影响所有使用该经历的简历。
+                    </div>
+                  )}
+                  {activeModule === 'project' && selectedProject && !creatingProject && (
+                    <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                      修改经历内容会同步影响所有使用该经历的简历。
+                    </div>
+                  )}
+                  {activeModule === 'award' && selectedAward && !creatingAward && (
+                    <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                      修改记录内容会同步影响所有使用该记录的简历。
+                    </div>
+                  )}
                   <EditorForm
                     moduleKey={activeModule}
                     form={profileForm}
                     educationFormRef={educationFormRef}
                     internshipFormRef={internshipFormRef}
+                    workFormRef={workFormRef}
+                    projectFormRef={projectFormRef}
+                    awardFormRef={awardFormRef}
                     educationFormKey={
                       creatingEducation ? 'education-new' : `education-${selectedEducationId}`
                     }
@@ -991,6 +1811,51 @@ function ResumeWorkspace() {
                             description: selectedInternship.description ?? '',
                           }
                     }
+                    workFormKey={creatingWork ? 'work-new' : `work-${selectedWorkId}`}
+                    workInitialValues={
+                      creatingWork || !selectedWork
+                        ? { is_current: false }
+                        : {
+                            company_name: selectedWork.company_name,
+                            position_title: selectedWork.position_title,
+                            department: selectedWork.department ?? '',
+                            location: selectedWork.location ?? '',
+                            start_date: selectedWork.start_date?.slice(0, 7) ?? '',
+                            end_date: selectedWork.end_date?.slice(0, 7) ?? '',
+                            is_current: selectedWork.is_current,
+                            achievements: (selectedWork.achievements ?? []).join('\n'),
+                            description: selectedWork.description ?? '',
+                          }
+                    }
+                    projectFormKey={
+                      creatingProject ? 'project-new' : `project-${selectedProjectId}`
+                    }
+                    projectInitialValues={
+                      creatingProject || !selectedProject
+                        ? { is_current: false }
+                        : {
+                            project_name: selectedProject.project_name,
+                            role_name: selectedProject.role_name,
+                            project_url: selectedProject.project_url ?? '',
+                            repository_url: selectedProject.repository_url ?? '',
+                            start_date: selectedProject.start_date?.slice(0, 7) ?? '',
+                            end_date: selectedProject.end_date?.slice(0, 7) ?? '',
+                            is_current: selectedProject.is_current,
+                            achievements: (selectedProject.achievements ?? []).join('\n'),
+                            description: selectedProject.description ?? '',
+                          }
+                    }
+                    awardFormKey={creatingAward ? 'award-new' : `award-${selectedAwardId}`}
+                    awardInitialValues={
+                      creatingAward || !selectedAward
+                        ? {}
+                        : {
+                            award_name: selectedAward.award_name,
+                            issuer: selectedAward.issuer,
+                            certificate_url: selectedAward.certificate_url ?? '',
+                            description: selectedAward.description ?? '',
+                          }
+                    }
                     hasSelectedResume={Boolean(selectedResumeData)}
                   />
                 </>
@@ -1003,12 +1868,22 @@ function ResumeWorkspace() {
                   type="text"
                   disabled={
                     (activeModule === 'education' && !selectedEducation) ||
-                    (activeModule === 'internship' && !selectedInternship)
+                    (activeModule === 'internship' && !selectedInternship) ||
+                    (activeModule === 'work' && !selectedWork) ||
+                    (activeModule === 'project' && !selectedProject) ||
+                    (activeModule === 'award' && !selectedAward)
                   }
                   danger={
                     (activeModule === 'education' && educationScope === 'all') ||
                     (activeModule === 'internship' && internshipScope === 'all') ||
-                    (activeModule !== 'education' && activeModule !== 'internship')
+                    (activeModule === 'work' && workScope === 'all') ||
+                    (activeModule === 'project' && projectScope === 'all') ||
+                    (activeModule === 'award' && awardScope === 'all') ||
+                    (activeModule !== 'education' &&
+                      activeModule !== 'internship' &&
+                      activeModule !== 'work' &&
+                      activeModule !== 'project' &&
+                      activeModule !== 'award')
                   }
                   icon={<DeleteOutlined />}
                   onClick={
@@ -1020,7 +1895,19 @@ function ResumeWorkspace() {
                         ? internshipScope === 'current'
                           ? handleDetachInternship
                           : confirmDeleteInternship
-                        : undefined
+                        : activeModule === 'work'
+                          ? workScope === 'current'
+                            ? handleDetachWork
+                            : confirmDeleteWork
+                          : activeModule === 'project'
+                            ? projectScope === 'current'
+                              ? handleDetachProject
+                              : confirmDeleteProject
+                            : activeModule === 'award'
+                              ? awardScope === 'current'
+                                ? handleDetachAward
+                                : confirmDeleteAward
+                              : undefined
                   }
                 >
                   {activeModule === 'education'
@@ -1031,7 +1918,19 @@ function ResumeWorkspace() {
                       ? internshipScope === 'current'
                         ? '移出简历'
                         : '永久删除'
-                      : '删除'}
+                      : activeModule === 'work'
+                        ? workScope === 'current'
+                          ? '移出简历'
+                          : '永久删除'
+                        : activeModule === 'project'
+                          ? projectScope === 'current'
+                            ? '移出简历'
+                            : '永久删除'
+                          : activeModule === 'award'
+                            ? awardScope === 'current'
+                              ? '移出简历'
+                              : '永久删除'
+                            : '删除'}
                 </Button>
               ) : (
                 <span />
@@ -1043,7 +1942,13 @@ function ResumeWorkspace() {
                       ? cancelEducationEdit
                       : activeModule === 'internship'
                         ? cancelInternshipEdit
-                        : undefined
+                        : activeModule === 'work'
+                          ? cancelWorkEdit
+                          : activeModule === 'project'
+                            ? cancelProjectEdit
+                            : activeModule === 'award'
+                              ? cancelAwardEdit
+                              : undefined
                   }
                 >
                   取消
@@ -1051,13 +1956,23 @@ function ResumeWorkspace() {
                 <Button
                   type="primary"
                   icon={<SaveOutlined />}
-                  loading={loading || educationLoading || internshipLoading}
+                  loading={
+                    loading ||
+                    educationLoading ||
+                    internshipLoading ||
+                    workLoading ||
+                    projectLoading ||
+                    awardLoading
+                  }
                   disabled={
                     (activeModule === 'profile' && !selectedResumeData) ||
                     (activeModule === 'education' && !selectedEducation && !creatingEducation) ||
                     (activeModule === 'internship' &&
                       !selectedInternship &&
-                      !creatingInternship)
+                      !creatingInternship) ||
+                    (activeModule === 'work' && !selectedWork && !creatingWork) ||
+                    (activeModule === 'project' && !selectedProject && !creatingProject) ||
+                    (activeModule === 'award' && !selectedAward && !creatingAward)
                   }
                   onClick={handleSave}
                 >

@@ -40,6 +40,12 @@ func main() {
 	educationHandler := handler.NewEducationHandler(educationService)
 	internshipService := service.NewInternshipService(postgresDB.DB)
 	internshipHandler := handler.NewInternshipHandler(internshipService)
+	workService := service.NewWorkService(postgresDB.DB)
+	workHandler := handler.NewWorkHandler(workService)
+	projectService := service.NewProjectService(postgresDB.DB)
+	projectHandler := handler.NewProjectHandler(projectService)
+	awardService := service.NewAwardService(postgresDB.DB)
+	awardHandler := handler.NewAwardHandler(awardService)
 
 	r.GET("/ping", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
@@ -85,6 +91,24 @@ func main() {
 		apiRoutes.DELETE("/internships/:id", internshipHandler.Delete)
 		apiRoutes.POST("/resumes/:id/internships/:internshipId", internshipHandler.Attach)
 		apiRoutes.DELETE("/resumes/:id/internships/:internshipId", internshipHandler.Detach)
+		apiRoutes.GET("/work-experiences", workHandler.List)
+		apiRoutes.POST("/work-experiences", workHandler.Create)
+		apiRoutes.PUT("/work-experiences/:id", workHandler.Update)
+		apiRoutes.DELETE("/work-experiences/:id", workHandler.Delete)
+		apiRoutes.POST("/resumes/:id/work-experiences/:workId", workHandler.Attach)
+		apiRoutes.DELETE("/resumes/:id/work-experiences/:workId", workHandler.Detach)
+		apiRoutes.GET("/project-experiences", projectHandler.List)
+		apiRoutes.POST("/project-experiences", projectHandler.Create)
+		apiRoutes.PUT("/project-experiences/:id", projectHandler.Update)
+		apiRoutes.DELETE("/project-experiences/:id", projectHandler.Delete)
+		apiRoutes.POST("/resumes/:id/project-experiences/:projectId", projectHandler.Attach)
+		apiRoutes.DELETE("/resumes/:id/project-experiences/:projectId", projectHandler.Detach)
+		apiRoutes.GET("/awards", awardHandler.List)
+		apiRoutes.POST("/awards", awardHandler.Create)
+		apiRoutes.PUT("/awards/:id", awardHandler.Update)
+		apiRoutes.DELETE("/awards/:id", awardHandler.Delete)
+		apiRoutes.POST("/resumes/:id/awards/:awardId", awardHandler.Attach)
+		apiRoutes.DELETE("/resumes/:id/awards/:awardId", awardHandler.Detach)
 	}
 
 	log.Printf(

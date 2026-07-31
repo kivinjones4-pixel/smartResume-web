@@ -41,13 +41,19 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/Auth'
 import { useResumeStore } from '../../store/Resume'
 import type { BasicProfileValues, Resume } from '../../types/Resume'
+import type { ResumeModuleKey } from '../../types/ResumeWorkspace'
+import { getErrorMessage, isFormValidationError } from '../../utils/error'
+import EditorForm from './components/EditorForm'
+import ResumePaper from './components/ResumePaper'
 
 const { Text, Title } = Typography
-const { TextArea } = Input
 
-type ModuleKey = 'profile' | 'education' | 'internship' | 'work' | 'project' | 'award'
-
-const modules: { key: ModuleKey; label: string; icon: React.ReactNode; multiple: boolean }[] = [
+const modules: {
+  key: ResumeModuleKey
+  label: string
+  icon: React.ReactNode
+  multiple: boolean
+}[] = [
   { key: 'profile', label: '基本信息', icon: <UserOutlined />, multiple: false },
   { key: 'education', label: '教育经历', icon: <BookOutlined />, multiple: true },
   { key: 'internship', label: '实习经历', icon: <SolutionOutlined />, multiple: true },
@@ -56,7 +62,7 @@ const modules: { key: ModuleKey; label: string; icon: React.ReactNode; multiple:
   { key: 'award', label: '获奖记录', icon: <TrophyOutlined />, multiple: true },
 ]
 
-const records: Record<ModuleKey, string[]> = {
+const records: Record<ResumeModuleKey, string[]> = {
   profile: ['个人基本信息'],
   education: ['华南理工大学 · 本科', '中山大学 · 硕士'],
   internship: ['字节跳动 · 产品实习生', '腾讯 · 产品策划实习生'],
@@ -90,7 +96,7 @@ function ResumeWorkspace() {
     saveBasicProfile,
   } = useResumeStore()
   const [profileForm] = Form.useForm<BasicProfileValues>()
-  const [activeModule, setActiveModule] = useState<ModuleKey>('profile')
+  const [activeModule, setActiveModule] = useState<ResumeModuleKey>('profile')
   const [recordIndex, setRecordIndex] = useState(0)
   const [editorCollapsed, setEditorCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
@@ -101,7 +107,7 @@ function ResumeWorkspace() {
 
   const currentModule = modules.find((item) => item.key === activeModule) ?? modules[0]
   useEffect(() => {
-    void load().catch(() => message.error('加载基本信息失败'))
+    void load().catch((error) => message.error(getErrorMessage(error, '加载基本信息失败')))
   }, [load])
 
   useEffect(() => {
@@ -135,7 +141,7 @@ function ResumeWorkspace() {
     },
   }
 
-  const selectModule = (key: ModuleKey) => {
+  const selectModule = (key: ResumeModuleKey) => {
     setActiveModule(key)
     setRecordIndex(0)
     if (editorCollapsed) setEditorCollapsed(false)
@@ -145,8 +151,8 @@ function ResumeWorkspace() {
     try {
       await createResume()
       message.success('已新建简历')
-    } catch {
-      message.error('新建简历失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '新建简历失败'))
     }
   }
 
@@ -168,7 +174,9 @@ function ResumeWorkspace() {
       })
       message.success('基本信息与求职方向已保存')
     } catch (error) {
-      if (error instanceof Error) message.error(error.message)
+      if (!isFormValidationError(error)) {
+        message.error(getErrorMessage(error, '保存基本信息失败'))
+      }
     }
   }
 
@@ -189,7 +197,7 @@ function ResumeWorkspace() {
       setRenameTarget(null)
       message.success('简历标题已修改')
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '修改简历标题失败')
+      message.error(getErrorMessage(error, '修改简历标题失败'))
     } finally {
       setRenameSaving(false)
     }
@@ -207,7 +215,7 @@ function ResumeWorkspace() {
           await deleteResume(resume.id)
           message.success('简历已删除，列表已刷新')
         } catch (error) {
-          message.error(error instanceof Error ? error.message : '删除简历失败')
+          message.error(getErrorMessage(error, '删除简历失败'))
           throw error
         }
       },
@@ -379,16 +387,6 @@ function ResumeWorkspace() {
         </section>
 
         <section className="relative min-w-155 overflow-auto bg-[#eef0f5]">
-          {rightCollapsed && (
-            <Tooltip title="展开简历侧栏">
-              <Button
-                // className="fixed top-[88px] right-4 z-40 shadow-sm"
-                icon={<LeftOutlined />}
-                onClick={() => setRightCollapsed(false)}
-              />
-            </Tooltip>
-          )}
-
           <div className="sticky top-0 z-10 flex h-13.5 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur">
             <div className="flex items-center gap-2">
               <FileTextOutlined className="text-indigo-500" />
@@ -410,6 +408,18 @@ function ResumeWorkspace() {
               </Button>
             </Space>
           </div>
+
+          {rightCollapsed && (
+            <div className="pointer-events-none sticky top-16 z-20 flex h-0 justify-end pr-3">
+              <Tooltip title="展开简历侧栏">
+                <Button
+                  className="pointer-events-auto shadow-sm"
+                  icon={<LeftOutlined />}
+                  onClick={() => setRightCollapsed(false)}
+                />
+              </Tooltip>
+            </div>
+          )}
 
           <div className="flex min-h-[calc(100%-54px)] justify-center p-9">
             {selectedResumeData ? (
@@ -554,198 +564,6 @@ function ResumeWorkspace() {
           onPressEnter={handleRenameResume}
         />
       </Modal>
-    </div>
-  )
-}
-
-function EditorForm({
-  moduleKey,
-  form,
-  hasSelectedResume,
-}: {
-  moduleKey: ModuleKey
-  form: ReturnType<typeof Form.useForm<BasicProfileValues>>[0]
-  hasSelectedResume: boolean
-}) {
-  if (moduleKey === 'profile') {
-    return (
-      <Form form={form} layout="vertical" requiredMark={false}>
-        <Form.Item
-          label="真实姓名"
-          name="full_name"
-          rules={[{ required: true, whitespace: true, message: '请输入真实姓名' }]}
-        >
-          <Input placeholder="请输入真实姓名" maxLength={100} />
-        </Form.Item>
-        <Form.Item
-          label="性别"
-          name="gender"
-          rules={[{ required: true, message: '请选择性别' }]}
-        >
-          <Select
-            placeholder="请选择性别"
-            options={[
-              { value: 'male', label: '男' },
-              { value: 'female', label: '女' },
-              { value: 'other', label: '其他' },
-              { value: 'undisclosed', label: '不愿透露' },
-            ]}
-          />
-        </Form.Item>
-        {hasSelectedResume && (
-          <Form.Item
-            label="求职方向"
-            name="target_position"
-            rules={[{ required: true, whitespace: true, message: '请输入求职方向' }]}
-          >
-            <Input placeholder="例如：高级产品经理" maxLength={150} />
-          </Form.Item>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <Form.Item label="联系电话" name="contact_phone">
-            <Input placeholder="联系电话" />
-          </Form.Item>
-          <Form.Item label="所在城市" name="location">
-            <Input placeholder="所在城市" />
-          </Form.Item>
-        </div>
-        <Form.Item label="联系邮箱" name="contact_email" rules={[{ type: 'email' }]}>
-          <Input placeholder="联系邮箱" />
-        </Form.Item>
-        <Form.Item label="职业标题" name="headline">
-          <Input placeholder="例如：6 年经验的 AI 产品经理" />
-        </Form.Item>
-        <Form.Item label="出生日期" name="birth_date">
-          <Input type="date" />
-        </Form.Item>
-        <Form.Item label="个人优势" name="summary">
-          <TextArea rows={7} placeholder="介绍你的经验、优势和职业亮点" />
-        </Form.Item>
-      </Form>
-    )
-  }
-
-  const fieldMap: Record<Exclude<ModuleKey, 'profile'>, [string, string, string]> = {
-    education: ['学校名称', '华南理工大学', '专业与学历'],
-    internship: ['公司名称', '字节跳动', '实习岗位'],
-    work: ['公司名称', '智云科技', '工作岗位'],
-    project: ['项目名称', 'AI 智能简历平台', '担任角色'],
-    award: ['奖项名称', '全国大学生创新创业大赛金奖', '颁发机构'],
-  }
-  const [nameLabel, nameValue, roleLabel] = fieldMap[moduleKey]
-
-  return (
-    <Form layout="vertical" requiredMark={false}>
-      <Form.Item label={nameLabel}>
-        <Input defaultValue={nameValue} />
-      </Form.Item>
-      <Form.Item label={roleLabel}>
-        <Input defaultValue={moduleKey === 'education' ? '计算机科学 · 本科' : '产品负责人'} />
-      </Form.Item>
-      <div className="grid grid-cols-2 gap-3">
-        <Form.Item label="开始时间">
-          <Input type="month" />
-        </Form.Item>
-        <Form.Item label="结束时间">
-          <Input type="month" />
-        </Form.Item>
-      </div>
-      <Form.Item label="经历描述">
-        <TextArea
-          rows={8}
-          defaultValue="负责核心产品规划与落地，通过用户研究和数据分析持续优化关键路径，推动业务目标高质量达成。"
-        />
-      </Form.Item>
-      <Button block icon={<ThunderboltOutlined />}>
-        AI 帮我润色
-      </Button>
-    </Form>
-  )
-}
-
-function ResumePaper({ title }: { title: string }) {
-  return (
-    <article className="min-h-240 w-180 bg-white px-14 py-12 text-[#343a4a] shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
-      <header className="flex items-start justify-between border-b-2 border-indigo-500 pb-7">
-        <div>
-          <h1 className="m-0 text-[30px] font-bold tracking-wide text-slate-800">佳卓</h1>
-          <p className="mt-2 mb-0 text-[14px] font-medium text-indigo-600">高级产品经理</p>
-          <p className="mt-3 text-[11px] text-slate-500">
-            深圳 · 138 0000 0000 · jiazhuo@example.com
-          </p>
-        </div>
-        <div className="grid h-18 w-18 place-items-center rounded-full bg-indigo-100 text-2xl font-bold text-indigo-500">
-          JZ
-        </div>
-      </header>
-
-      <ResumeSection title="个人优势">
-        <p>
-          6 年互联网产品经验，专注 AI 产品与企业效率工具，擅长从复杂业务中提炼核心需求，
-          具备从用户研究、产品规划到商业化落地的完整经验。
-        </p>
-      </ResumeSection>
-      <ResumeSection title="工作经历">
-        <ResumeEntry
-          title="智云科技｜高级产品经理"
-          time="2022.06 — 至今"
-          text="主导智能化产品从 0 到 1 落地，重构核心使用流程，推动业务转化率提升 32%；协同算法、研发和市场团队完成三次关键版本迭代。"
-        />
-        <ResumeEntry
-          title="星海科技｜产品经理"
-          time="2019.07 — 2022.05"
-          text="负责企业协作产品规划，通过用户分层和数据分析提升重点功能使用率，服务超过 200 家企业客户。"
-        />
-      </ResumeSection>
-      <ResumeSection title="项目经历">
-        <ResumeEntry
-          title="AI 智能简历与个人数字人平台"
-          time="产品负责人"
-          text="设计 AI 简历 Copilot 与双 Agent 交互引擎，支持 ATS 优化、实时 Diff、多租户 RAG 检索及流式问答。"
-        />
-      </ResumeSection>
-      <ResumeSection title="教育经历">
-        <ResumeEntry
-          title="华南理工大学｜计算机科学与技术"
-          time="2015.09 — 2019.06"
-          text="本科 · 校级优秀毕业生"
-        />
-      </ResumeSection>
-      <footer className="mt-10 border-t border-slate-100 pt-3 text-right text-[9px] text-slate-300">
-        {title} · 智简 AI 生成
-      </footer>
-    </article>
-  )
-}
-
-function ResumeSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-7">
-      <h2 className="mb-3 flex items-center gap-2 text-[14px] font-bold text-slate-800">
-        <span className="h-4 w-1 rounded bg-indigo-500" />
-        {title}
-      </h2>
-      <div className="text-[11px] leading-[1.9] text-slate-600">{children}</div>
-    </section>
-  )
-}
-
-function ResumeEntry({
-  title,
-  time,
-  text,
-}: {
-  title: string
-  time: string
-  text: string
-}) {
-  return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between">
-        <b className="text-[12px] text-slate-700">{title}</b>
-        <span className="text-[10px] text-slate-400">{time}</span>
-      </div>
-      <p className="mt-1.5 mb-0">{text}</p>
     </div>
   )
 }

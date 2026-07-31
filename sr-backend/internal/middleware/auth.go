@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"sr-backend/internal/service"
+	"sr-backend/pkg/response"
 )
 
 const UserIDKey = "auth_user_id"
@@ -15,16 +16,14 @@ func RequireAuth(auth *service.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"message": "请先登录",
-			})
+			response.Error(c, http.StatusUnauthorized, "AUTH_REQUIRED", "请先登录")
+			c.Abort()
 			return
 		}
 		claims, err := auth.ParseAccessToken(strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"message": "登录状态已过期",
-			})
+			response.Error(c, http.StatusUnauthorized, "ACCESS_TOKEN_EXPIRED", "登录状态已过期")
+			c.Abort()
 			return
 		}
 		c.Set(UserIDKey, claims.Subject)

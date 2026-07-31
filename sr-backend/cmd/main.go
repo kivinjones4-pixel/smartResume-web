@@ -13,6 +13,7 @@ import (
 	"sr-backend/internal/handler"
 	"sr-backend/internal/middleware"
 	"sr-backend/internal/service"
+	"sr-backend/pkg/response"
 )
 
 func main() {
@@ -41,14 +42,11 @@ func main() {
 		defer cancel()
 
 		if err := postgresDB.SQL.PingContext(ctx); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"message":  "service unavailable",
-				"database": "down",
-			})
+			response.Error(c, http.StatusServiceUnavailable, "DATABASE_UNAVAILABLE", "service unavailable")
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		response.Success(c, gin.H{
 			"message":  "pong",
 			"database": "ok",
 		})

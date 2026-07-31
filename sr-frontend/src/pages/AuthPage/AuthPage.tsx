@@ -10,6 +10,7 @@ import {
 import { Alert, Button, Checkbox, Form, Input, Typography } from 'antd'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/Auth'
+import { getErrorMessage } from '../../utils/error'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -49,7 +50,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       await login({ identifier: values.identifier, password: values.password })
       navigate(destination, { replace: true })
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '登录失败')
+      setError(getErrorMessage(submitError, '登录失败，请稍后重试'))
     } finally {
       setSubmitting(false)
     }
@@ -66,7 +67,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       })
       navigate('/resume', { replace: true })
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '注册失败')
+      setError(getErrorMessage(submitError, '注册失败，请稍后重试'))
     } finally {
       setSubmitting(false)
     }

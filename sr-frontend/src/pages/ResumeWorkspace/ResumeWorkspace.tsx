@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BankOutlined,
   BookOutlined,
@@ -29,18 +29,43 @@ import {
   Form,
   Input,
   Modal,
+  Segmented,
   Select,
   Space,
   Tag,
   Tooltip,
   Typography,
   message,
+  type FormInstance,
   type MenuProps,
 } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/Auth'
 import { useResumeStore } from '../../store/Resume'
-import type { BasicProfileValues, Resume } from '../../types/Resume'
+import {
+  attachEducation,
+  attachInternship,
+  createEducation,
+  createInternship,
+  deleteEducation,
+  deleteInternship,
+  detachEducation,
+  detachInternship,
+  listAllEducations,
+  listAllInternships,
+  listEducations,
+  listInternships,
+  updateEducation,
+  updateInternship,
+} from '../../services/Resume'
+import type {
+  BasicProfileValues,
+  Education,
+  EducationFormValues,
+  Internship,
+  InternshipFormValues,
+  Resume,
+} from '../../types/Resume'
 import type { ResumeModuleKey } from '../../types/ResumeWorkspace'
 import { getErrorMessage, isFormValidationError } from '../../utils/error'
 import EditorForm from './components/EditorForm'
@@ -62,9 +87,8 @@ const modules: {
   { key: 'award', label: '获奖记录', icon: <TrophyOutlined />, multiple: true },
 ]
 
-const records: Record<ResumeModuleKey, string[]> = {
+const records: Record<Exclude<ResumeModuleKey, 'education'>, string[]> = {
   profile: ['个人基本信息'],
-  education: ['华南理工大学 · 本科', '中山大学 · 硕士'],
   internship: ['字节跳动 · 产品实习生', '腾讯 · 产品策划实习生'],
   work: ['智云科技 · 高级产品经理', '星海科技 · 产品经理'],
   project: ['AI 智能简历平台', '企业知识库 Copilot'],
@@ -96,6 +120,20 @@ function ResumeWorkspace() {
     saveBasicProfile,
   } = useResumeStore()
   const [profileForm] = Form.useForm<BasicProfileValues>()
+  const educationFormRef = useRef<FormInstance<EducationFormValues>>(null)
+  const internshipFormRef = useRef<FormInstance<InternshipFormValues>>(null)
+  const [educations, setEducations] = useState<Education[]>([])
+  const [currentEducationIds, setCurrentEducationIds] = useState<string[]>([])
+  const [educationScope, setEducationScope] = useState<'current' | 'all'>('current')
+  const [selectedEducationId, setSelectedEducationId] = useState('')
+  const [educationLoading, setEducationLoading] = useState(false)
+  const [creatingEducation, setCreatingEducation] = useState(false)
+  const [internships, setInternships] = useState<Internship[]>([])
+  const [currentInternshipIds, setCurrentInternshipIds] = useState<string[]>([])
+  const [internshipScope, setInternshipScope] = useState<'current' | 'all'>('current')
+  const [selectedInternshipId, setSelectedInternshipId] = useState('')
+  const [internshipLoading, setInternshipLoading] = useState(false)
+  const [creatingInternship, setCreatingInternship] = useState(false)
   const [activeModule, setActiveModule] = useState<ResumeModuleKey>('profile')
   const [recordIndex, setRecordIndex] = useState(0)
   const [editorCollapsed, setEditorCollapsed] = useState(false)
@@ -119,6 +157,108 @@ function ResumeWorkspace() {
       target_position: selectedResumeData?.target_position ?? '',
     })
   }, [profile, profileForm, selectedResumeData, selectedResumeId])
+
+  useEffect(() => {
+    if (!selectedResumeId) {
+      void Promise.resolve().then(() => {
+        setEducations([])
+        setCurrentEducationIds([])
+        setSelectedEducationId('')
+        setCreatingEducation(false)
+      })
+      return
+    }
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setEducationLoading(true)
+      void Promise.all([listAllEducations(), listEducations(selectedResumeId)])
+        .then(([allItems, currentItems]) => {
+          if (cancelled) return
+          const linkedIds = currentItems.map((item) => item.id)
+          setEducations(allItems)
+          setCurrentEducationIds(linkedIds)
+          setSelectedEducationId(currentItems[0]?.id ?? '')
+          setEducationScope('current')
+          setCreatingEducation(false)
+        })
+        .catch((error) => {
+          if (!cancelled) message.error(getErrorMessage(error, '加载教育经历失败'))
+        })
+        .finally(() => {
+          if (!cancelled) setEducationLoading(false)
+        })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedResumeId])
+
+  useEffect(() => {
+    if (!selectedResumeId) {
+      void Promise.resolve().then(() => {
+        setInternships([])
+        setCurrentInternshipIds([])
+        setSelectedInternshipId('')
+        setCreatingInternship(false)
+      })
+      return
+    }
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setInternshipLoading(true)
+      void Promise.all([listAllInternships(), listInternships(selectedResumeId)])
+        .then(([allItems, currentItems]) => {
+          if (cancelled) return
+          const linkedIds = currentItems.map((item) => item.id)
+          setInternships(allItems)
+          setCurrentInternshipIds(linkedIds)
+          setSelectedInternshipId(currentItems[0]?.id ?? '')
+          setInternshipScope('current')
+          setCreatingInternship(false)
+        })
+        .catch((error) => {
+          if (!cancelled) message.error(getErrorMessage(error, '加载实习经历失败'))
+        })
+        .finally(() => {
+          if (!cancelled) setInternshipLoading(false)
+        })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedResumeId])
+
+  const currentEducations = educations.filter((education) =>
+    currentEducationIds.includes(education.id),
+  )
+  const visibleEducations = educationScope === 'current' ? currentEducations : educations
+  const selectedEducation =
+    educations.find((education) => education.id === selectedEducationId) ?? null
+  const selectedEducationIsCurrent = selectedEducation
+    ? currentEducationIds.includes(selectedEducation.id)
+    : false
+  const currentInternships = internships.filter((item) =>
+    currentInternshipIds.includes(item.id),
+  )
+  const visibleInternships =
+    internshipScope === 'current' ? currentInternships : internships
+  const selectedInternship =
+    internships.find((item) => item.id === selectedInternshipId) ?? null
+  const selectedInternshipIsCurrent = selectedInternship
+    ? currentInternshipIds.includes(selectedInternship.id)
+    : false
+
+  const reusableExperienceEmpty =
+    (activeModule === 'education' &&
+      !educationLoading &&
+      visibleEducations.length === 0 &&
+      !creatingEducation) ||
+    (activeModule === 'internship' &&
+      !internshipLoading &&
+      visibleInternships.length === 0 &&
+      !creatingInternship)
 
   const gridTemplate = useMemo(() => {
     const editorWidth = editorCollapsed ? '0px' : '360px'
@@ -157,6 +297,86 @@ function ResumeWorkspace() {
   }
 
   const handleSave = async () => {
+    if (activeModule === 'internship') {
+      if (!selectedResumeId) {
+        message.warning('请先新建或选择一份简历')
+        return
+      }
+      try {
+        const values = await internshipFormRef.current?.validateFields()
+        if (!values) return
+        const payload = {
+          ...values,
+          resume_id: selectedResumeId,
+          start_date: `${values.start_date}-01`,
+          end_date: values.is_current || !values.end_date ? undefined : `${values.end_date}-01`,
+          achievements: (values.achievements ?? '')
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }
+        const saved = creatingInternship
+          ? await createInternship(payload)
+          : await updateInternship(selectedInternshipId, payload)
+        setInternships((current) =>
+          creatingInternship
+            ? [...current, saved]
+            : current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        if (creatingInternship) {
+          setCurrentInternshipIds((current) =>
+            current.includes(saved.id) ? current : [...current, saved.id],
+          )
+          setInternshipScope('current')
+        }
+        setSelectedInternshipId(saved.id)
+        setCreatingInternship(false)
+        message.success(creatingInternship ? '实习经历已新增' : '实习经历已保存')
+      } catch (error) {
+        if (!isFormValidationError(error)) {
+          message.error(getErrorMessage(error, '保存实习经历失败'))
+        }
+      }
+      return
+    }
+    if (activeModule === 'education') {
+      if (!selectedResumeId) {
+        message.warning('请先新建或选择一份简历')
+        return
+      }
+      try {
+        const values = await educationFormRef.current?.validateFields()
+        if (!values) return
+        const payload = {
+          ...values,
+          resume_id: selectedResumeId,
+          start_date: `${values.start_date}-01`,
+          end_date: values.is_current || !values.end_date ? undefined : `${values.end_date}-01`,
+        }
+        const saved = creatingEducation
+          ? await createEducation(payload)
+          : await updateEducation(selectedEducationId, payload)
+        setEducations((current) =>
+          creatingEducation
+            ? [...current, saved]
+            : current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        if (creatingEducation) {
+          setCurrentEducationIds((current) =>
+            current.includes(saved.id) ? current : [...current, saved.id],
+          )
+          setEducationScope('current')
+        }
+        setSelectedEducationId(saved.id)
+        setCreatingEducation(false)
+        message.success(creatingEducation ? '教育经历已新增' : '教育经历已保存')
+      } catch (error) {
+        if (!isFormValidationError(error)) {
+          message.error(getErrorMessage(error, '保存教育经历失败'))
+        }
+      }
+      return
+    }
     if (activeModule !== 'profile') {
       message.info('当前模块保存接口将在对应模块开发时接入')
       return
@@ -178,6 +398,174 @@ function ResumeWorkspace() {
         message.error(getErrorMessage(error, '保存基本信息失败'))
       }
     }
+  }
+
+  const startCreatingEducation = () => {
+    if (!selectedResumeId) {
+      message.warning('请先新建或选择一份简历')
+      return
+    }
+    setCreatingEducation(true)
+    setSelectedEducationId('')
+  }
+
+  const cancelEducationEdit = () => {
+    setCreatingEducation(false)
+    const item = visibleEducations[0]
+    setSelectedEducationId(item?.id ?? '')
+  }
+
+  const changeEducationScope = (scope: 'current' | 'all') => {
+    setEducationScope(scope)
+    setCreatingEducation(false)
+    const items = scope === 'current' ? currentEducations : educations
+    const item = items.find((entry) => entry.id === selectedEducationId) ?? items[0]
+    setSelectedEducationId(item?.id ?? '')
+  }
+
+  const handleAttachEducation = async () => {
+    if (!selectedResumeId || !selectedEducation || selectedEducationIsCurrent) return
+    setEducationLoading(true)
+    try {
+      await attachEducation(selectedResumeId, selectedEducation.id)
+      setCurrentEducationIds((current) => [...current, selectedEducation.id])
+      message.success('已加入当前简历')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加入当前简历失败'))
+    } finally {
+      setEducationLoading(false)
+    }
+  }
+
+  const handleDetachEducation = async () => {
+    if (!selectedResumeId || !selectedEducation || !selectedEducationIsCurrent) return
+    setEducationLoading(true)
+    try {
+      await detachEducation(selectedResumeId, selectedEducation.id)
+      const remainingIds = currentEducationIds.filter((id) => id !== selectedEducation.id)
+      setCurrentEducationIds(remainingIds)
+      const next = educations.find((item) => remainingIds.includes(item.id))
+      setSelectedEducationId(next?.id ?? '')
+      message.success('已从当前简历移除，经历仍保留在经历库')
+    } catch (error) {
+      message.error(getErrorMessage(error, '从当前简历移除失败'))
+    } finally {
+      setEducationLoading(false)
+    }
+  }
+
+  const confirmDeleteEducation = () => {
+    if (!selectedEducation) return
+    Modal.confirm({
+      title: '删除这条教育经历？',
+      content: `“${selectedEducation.school_name}”会从所有关联简历中移除，删除后无法恢复。`,
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteEducation(selectedEducation.id)
+          const remaining = educations.filter((item) => item.id !== selectedEducation.id)
+          setEducations(remaining)
+          setCurrentEducationIds((current) =>
+            current.filter((id) => id !== selectedEducation.id),
+          )
+          const next =
+            educationScope === 'current'
+              ? remaining.find((item) => currentEducationIds.includes(item.id))
+              : remaining[0]
+          setSelectedEducationId(next?.id ?? '')
+          message.success('教育经历已删除')
+        } catch (error) {
+          message.error(getErrorMessage(error, '删除教育经历失败'))
+          throw error
+        }
+      },
+    })
+  }
+
+  const startCreatingInternship = () => {
+    if (!selectedResumeId) {
+      message.warning('请先新建或选择一份简历')
+      return
+    }
+    setCreatingInternship(true)
+    setSelectedInternshipId('')
+  }
+
+  const cancelInternshipEdit = () => {
+    setCreatingInternship(false)
+    const item = visibleInternships[0]
+    setSelectedInternshipId(item?.id ?? '')
+  }
+
+  const changeInternshipScope = (scope: 'current' | 'all') => {
+    setInternshipScope(scope)
+    setCreatingInternship(false)
+    const items = scope === 'current' ? currentInternships : internships
+    const item = items.find((entry) => entry.id === selectedInternshipId) ?? items[0]
+    setSelectedInternshipId(item?.id ?? '')
+  }
+
+  const handleAttachInternship = async () => {
+    if (!selectedResumeId || !selectedInternship || selectedInternshipIsCurrent) return
+    setInternshipLoading(true)
+    try {
+      await attachInternship(selectedResumeId, selectedInternship.id)
+      setCurrentInternshipIds((current) => [...current, selectedInternship.id])
+      message.success('已加入当前简历')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加入当前简历失败'))
+    } finally {
+      setInternshipLoading(false)
+    }
+  }
+
+  const handleDetachInternship = async () => {
+    if (!selectedResumeId || !selectedInternship || !selectedInternshipIsCurrent) return
+    setInternshipLoading(true)
+    try {
+      await detachInternship(selectedResumeId, selectedInternship.id)
+      const remainingIds = currentInternshipIds.filter((id) => id !== selectedInternship.id)
+      setCurrentInternshipIds(remainingIds)
+      const next = internships.find((item) => remainingIds.includes(item.id))
+      setSelectedInternshipId(next?.id ?? '')
+      message.success('已从当前简历移除，经历仍保留在经历库')
+    } catch (error) {
+      message.error(getErrorMessage(error, '从当前简历移除失败'))
+    } finally {
+      setInternshipLoading(false)
+    }
+  }
+
+  const confirmDeleteInternship = () => {
+    if (!selectedInternship) return
+    Modal.confirm({
+      title: '永久删除这条实习经历？',
+      content: `“${selectedInternship.company_name} · ${selectedInternship.position_title}”会从所有关联简历中移除，删除后无法恢复。`,
+      okText: '永久删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteInternship(selectedInternship.id)
+          const remaining = internships.filter((item) => item.id !== selectedInternship.id)
+          setInternships(remaining)
+          setCurrentInternshipIds((current) =>
+            current.filter((id) => id !== selectedInternship.id),
+          )
+          const next =
+            internshipScope === 'current'
+              ? remaining.find((item) => currentInternshipIds.includes(item.id))
+              : remaining[0]
+          setSelectedInternshipId(next?.id ?? '')
+          message.success('实习经历已永久删除')
+        } catch (error) {
+          message.error(getErrorMessage(error, '删除实习经历失败'))
+          throw error
+        }
+      },
+    })
   }
 
   const openRenameModal = (resume: Resume) => {
@@ -334,7 +722,9 @@ function ResumeWorkspace() {
               </Tooltip>
             </div>
 
-            {currentModule.multiple && (
+            {currentModule.multiple &&
+              activeModule !== 'education' &&
+              activeModule !== 'internship' && (
               <div className="border-b border-slate-100 bg-slate-50/70 p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <Text className="text-xs! font-medium! text-slate-500!">选择一条经历</Text>
@@ -346,7 +736,7 @@ function ResumeWorkspace() {
                   className="w-full"
                   value={recordIndex}
                   onChange={setRecordIndex}
-                  options={records[activeModule].map((label, index) => ({
+                  options={records[activeModule as Exclude<ResumeModuleKey, 'education'>].map((label, index) => ({
                     value: index,
                     label,
                   }))}
@@ -354,35 +744,327 @@ function ResumeWorkspace() {
               </div>
             )}
 
+            {activeModule === 'education' && (
+              <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+                <Segmented
+                  block
+                  className="mb-3"
+                  value={educationScope}
+                  onChange={(value) => changeEducationScope(value as 'current' | 'all')}
+                  options={[
+                    { value: 'current', label: `当前简历 ${currentEducations.length}` },
+                    { value: 'all', label: `全部经历 ${educations.length}` },
+                  ]}
+                />
+                <div className="mb-2 flex items-center justify-between">
+                  <Text className="text-xs! text-slate-500!">
+                    {educationScope === 'current'
+                      ? '本简历采用的教育经历'
+                      : '个人经历库，可在多份简历中复用'}
+                  </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    disabled={!selectedResumeId}
+                    onClick={startCreatingEducation}
+                  >
+                    新增
+                  </Button>
+                </div>
+                {visibleEducations.length > 0 && !creatingEducation && (
+                  <Select
+                    className="w-full"
+                    value={selectedEducationId}
+                    loading={educationLoading}
+                    onChange={(value) => {
+                      setCreatingEducation(false)
+                      setSelectedEducationId(value)
+                    }}
+                    options={visibleEducations.map((education) => ({
+                      value: education.id,
+                      label: `${[education.school_name, education.degree]
+                        .filter(Boolean)
+                        .join(' · ')}${
+                        educationScope === 'all' &&
+                        currentEducationIds.includes(education.id)
+                          ? '（已加入）'
+                          : ''
+                      }`,
+                    }))}
+                  />
+                )}
+                {educationScope === 'all' && selectedEducation && !creatingEducation && (
+                  <Button
+                    block
+                    className="mt-3"
+                    type={selectedEducationIsCurrent ? 'default' : 'primary'}
+                    disabled={selectedEducationIsCurrent}
+                    icon={selectedEducationIsCurrent ? undefined : <PlusOutlined />}
+                    onClick={handleAttachEducation}
+                  >
+                    {selectedEducationIsCurrent ? '已加入当前简历' : '加入当前简历'}
+                  </Button>
+                )}
+                {creatingEducation && (
+                  <Text className="text-sm! text-indigo-600!">
+                    新增教育经历（保存后自动加入当前简历）
+                  </Text>
+                )}
+              </div>
+            )}
+
+            {activeModule === 'internship' && (
+              <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+                <Segmented
+                  block
+                  className="mb-3"
+                  value={internshipScope}
+                  onChange={(value) => changeInternshipScope(value as 'current' | 'all')}
+                  options={[
+                    { value: 'current', label: `当前简历 ${currentInternships.length}` },
+                    { value: 'all', label: `全部经历 ${internships.length}` },
+                  ]}
+                />
+                <div className="mb-2 flex items-center justify-between">
+                  <Text className="text-xs! text-slate-500!">
+                    {internshipScope === 'current'
+                      ? '本简历采用的实习经历'
+                      : '个人经历库，可在多份简历中复用'}
+                  </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    disabled={!selectedResumeId}
+                    onClick={startCreatingInternship}
+                  >
+                    新增
+                  </Button>
+                </div>
+                {visibleInternships.length > 0 && !creatingInternship && (
+                  <Select
+                    className="w-full"
+                    value={selectedInternshipId}
+                    loading={internshipLoading}
+                    onChange={(value) => {
+                      setCreatingInternship(false)
+                      setSelectedInternshipId(value)
+                    }}
+                    options={visibleInternships.map((item) => ({
+                      value: item.id,
+                      label: `${item.company_name} · ${item.position_title}${
+                        internshipScope === 'all' &&
+                        currentInternshipIds.includes(item.id)
+                          ? '（已加入）'
+                          : ''
+                      }`,
+                    }))}
+                  />
+                )}
+                {internshipScope === 'all' &&
+                  selectedInternship &&
+                  !creatingInternship && (
+                    <Button
+                      block
+                      className="mt-3"
+                      type={selectedInternshipIsCurrent ? 'default' : 'primary'}
+                      disabled={selectedInternshipIsCurrent}
+                      icon={selectedInternshipIsCurrent ? undefined : <PlusOutlined />}
+                      onClick={handleAttachInternship}
+                    >
+                      {selectedInternshipIsCurrent ? '已加入当前简历' : '加入当前简历'}
+                    </Button>
+                  )}
+                {creatingInternship && (
+                  <Text className="text-sm! text-indigo-600!">
+                    新增实习经历（保存后自动加入当前简历）
+                  </Text>
+                )}
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto px-5 py-5">
-              <EditorForm
-                moduleKey={activeModule}
-                form={profileForm}
-                hasSelectedResume={Boolean(selectedResumeData)}
-              />
+              {reusableExperienceEmpty ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    activeModule === 'education'
+                      ? educationScope === 'current' && educations.length > 0
+                        ? '当前简历还没有教育经历，可从经历库中选择'
+                        : '还没有教育经历，创建后可在多份简历中复用'
+                      : internshipScope === 'current' && internships.length > 0
+                        ? '当前简历还没有实习经历，可从经历库中选择'
+                        : '还没有实习经历，创建后可在多份简历中复用'
+                  }
+                >
+                  <Space direction="vertical">
+                    {((activeModule === 'education' &&
+                      educationScope === 'current' &&
+                      educations.length > 0) ||
+                      (activeModule === 'internship' &&
+                        internshipScope === 'current' &&
+                        internships.length > 0)) && (
+                      <Button
+                        type="primary"
+                        onClick={() =>
+                          activeModule === 'education'
+                            ? changeEducationScope('all')
+                            : changeInternshipScope('all')
+                        }
+                      >
+                        从经历库添加
+                      </Button>
+                    )}
+                    <Button
+                      type={
+                        (activeModule === 'education' ? educations : internships).length === 0
+                          ? 'primary'
+                          : 'default'
+                      }
+                      icon={<PlusOutlined />}
+                      disabled={!selectedResumeId}
+                      onClick={
+                        activeModule === 'education'
+                          ? startCreatingEducation
+                          : startCreatingInternship
+                      }
+                    >
+                      新增{activeModule === 'education' ? '教育' : '实习'}经历
+                    </Button>
+                  </Space>
+                </Empty>
+              ) : (
+                <>
+                  {activeModule === 'education' && selectedEducation && !creatingEducation && (
+                    <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                      修改经历内容会同步影响所有使用该经历的简历。
+                    </div>
+                  )}
+                  {activeModule === 'internship' &&
+                    selectedInternship &&
+                    !creatingInternship && (
+                      <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                        修改经历内容会同步影响所有使用该经历的简历。
+                      </div>
+                    )}
+                  <EditorForm
+                    moduleKey={activeModule}
+                    form={profileForm}
+                    educationFormRef={educationFormRef}
+                    internshipFormRef={internshipFormRef}
+                    educationFormKey={
+                      creatingEducation ? 'education-new' : `education-${selectedEducationId}`
+                    }
+                    educationInitialValues={
+                      creatingEducation || !selectedEducation
+                        ? { is_current: false }
+                        : {
+                            school_name: selectedEducation.school_name,
+                            degree: selectedEducation.degree ?? '',
+                            field_of_study: selectedEducation.field_of_study ?? '',
+                            location: selectedEducation.location ?? '',
+                            start_date: selectedEducation.start_date?.slice(0, 7) ?? '',
+                            end_date: selectedEducation.end_date?.slice(0, 7) ?? '',
+                            is_current: selectedEducation.is_current,
+                            gpa: selectedEducation.gpa ?? '',
+                            description: selectedEducation.description ?? '',
+                          }
+                    }
+                    internshipFormKey={
+                      creatingInternship
+                        ? 'internship-new'
+                        : `internship-${selectedInternshipId}`
+                    }
+                    internshipInitialValues={
+                      creatingInternship || !selectedInternship
+                        ? { is_current: false }
+                        : {
+                            company_name: selectedInternship.company_name,
+                            position_title: selectedInternship.position_title,
+                            department: selectedInternship.department ?? '',
+                            location: selectedInternship.location ?? '',
+                            start_date: selectedInternship.start_date?.slice(0, 7) ?? '',
+                            end_date: selectedInternship.end_date?.slice(0, 7) ?? '',
+                            is_current: selectedInternship.is_current,
+                            achievements: (selectedInternship.achievements ?? []).join('\n'),
+                            description: selectedInternship.description ?? '',
+                          }
+                    }
+                    hasSelectedResume={Boolean(selectedResumeData)}
+                  />
+                </>
+              )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 bg-white p-4">
+            {!reusableExperienceEmpty && <div className="flex items-center justify-between border-t border-slate-100 bg-white p-4">
               {currentModule.multiple ? (
-                <Button danger type="text" icon={<DeleteOutlined />}>
-                  删除
+                <Button
+                  type="text"
+                  disabled={
+                    (activeModule === 'education' && !selectedEducation) ||
+                    (activeModule === 'internship' && !selectedInternship)
+                  }
+                  danger={
+                    (activeModule === 'education' && educationScope === 'all') ||
+                    (activeModule === 'internship' && internshipScope === 'all') ||
+                    (activeModule !== 'education' && activeModule !== 'internship')
+                  }
+                  icon={<DeleteOutlined />}
+                  onClick={
+                    activeModule === 'education'
+                      ? educationScope === 'current'
+                        ? handleDetachEducation
+                        : confirmDeleteEducation
+                      : activeModule === 'internship'
+                        ? internshipScope === 'current'
+                          ? handleDetachInternship
+                          : confirmDeleteInternship
+                        : undefined
+                  }
+                >
+                  {activeModule === 'education'
+                    ? educationScope === 'current'
+                      ? '移出简历'
+                      : '永久删除'
+                    : activeModule === 'internship'
+                      ? internshipScope === 'current'
+                        ? '移出简历'
+                        : '永久删除'
+                      : '删除'}
                 </Button>
               ) : (
                 <span />
               )}
               <Space>
-                <Button>取消</Button>
+                <Button
+                  onClick={
+                    activeModule === 'education'
+                      ? cancelEducationEdit
+                      : activeModule === 'internship'
+                        ? cancelInternshipEdit
+                        : undefined
+                  }
+                >
+                  取消
+                </Button>
                 <Button
                   type="primary"
                   icon={<SaveOutlined />}
-                  loading={loading}
-                  disabled={activeModule === 'profile' && !selectedResumeData}
+                  loading={loading || educationLoading || internshipLoading}
+                  disabled={
+                    (activeModule === 'profile' && !selectedResumeData) ||
+                    (activeModule === 'education' && !selectedEducation && !creatingEducation) ||
+                    (activeModule === 'internship' &&
+                      !selectedInternship &&
+                      !creatingInternship)
+                  }
                   onClick={handleSave}
                 >
                   保存
                 </Button>
               </Space>
-            </div>
+            </div>}
           </div>
         </section>
 

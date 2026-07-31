@@ -65,6 +65,33 @@ curl http://127.0.0.1:8080/ping
 | POST | `/api/v1/auth/logout` | 撤销 Refresh Token 并退出 |
 | GET | `/api/v1/auth/me` | Access Token 鉴权并读取当前用户 |
 
+### 教育经历接口
+
+以下接口均需携带 Access Token。教育经历按简历加载；新增和编辑时的
+`resume_id` 会用于校验简历归属及维护 `resume_education_rel` 关联。
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| GET | `/api/v1/educations` | 查询用户的全部教育经历 |
+| GET | `/api/v1/educations?resume_id=:resume_id` | 查询当前简历已加入的教育经历 |
+| POST | `/api/v1/educations` | 新增教育经历并关联简历 |
+| PUT | `/api/v1/educations/:id` | 保存教育经历 |
+| DELETE | `/api/v1/educations/:id` | 删除教育经历并级联清理简历关联 |
+| POST | `/api/v1/resumes/:id/educations/:educationId` | 将已有经历加入当前简历 |
+| DELETE | `/api/v1/resumes/:id/educations/:educationId` | 仅从当前简历移除经历 |
+
+### 实习经历接口
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| GET | `/api/v1/internships` | 查询用户的全部实习经历 |
+| GET | `/api/v1/internships?resume_id=:resume_id` | 查询当前简历已加入的实习经历 |
+| POST | `/api/v1/internships` | 新增实习经历并关联简历 |
+| PUT | `/api/v1/internships/:id` | 保存实习经历 |
+| DELETE | `/api/v1/internships/:id` | 删除实习经历并级联清理简历关联 |
+| POST | `/api/v1/resumes/:id/internships/:internshipId` | 将已有经历加入当前简历 |
+| DELETE | `/api/v1/resumes/:id/internships/:internshipId` | 仅从当前简历移除经历 |
+
 Access Token 通过响应体返回并由前端保存在内存；Refresh Token 通过
 `HttpOnly` Cookie 传输，数据库只保存其 SHA-256 哈希。
 

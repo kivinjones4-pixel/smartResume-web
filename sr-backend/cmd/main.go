@@ -8,9 +8,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"sr-backend/internal/agent"
+	"sr-backend/internal/agent/chat"
+	"sr-backend/internal/agent/embedding"
 	"sr-backend/internal/config"
 	"sr-backend/internal/database"
 	"sr-backend/internal/handler"
+	"sr-backend/internal/knowledge"
 	"sr-backend/internal/middleware"
 	"sr-backend/internal/service"
 	"sr-backend/pkg/response"
@@ -46,6 +50,29 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectService)
 	awardService := service.NewAwardService(postgresDB.DB)
 	awardHandler := handler.NewAwardHandler(awardService)
+	if err := cfg.AI.ValidateEmbedding(); err != nil {
+		log.Fatalf("invalid embedding configuration: %v", err)
+	}
+	if err := cfg.AI.ValidateChat(); err != nil {
+		log.Fatalf("invalid chat configuration: %v", err)
+	}
+	embeddingClient, err := embedding.NewOpenAICompatibleClient(
+		cfg.AI.Embedding, cfg.AI.EmbeddingDimensions, cfg.AI.TimeoutSeconds,
+	)
+	if err != nil {
+		log.Fatalf("create embedding client: %v", err)
+	}
+	chatClient, err := chat.NewOpenAICompatibleClient(cfg.AI.Chat, cfg.AI.TimeoutSeconds)
+	if err != nil {
+		log.Fatalf("create chat client: %v", err)
+	}
+	assistantService, err := agent.NewService(
+		cfg, chatClient, embeddingClient, knowledge.NewRepository(postgresDB.SQL),
+	)
+	if err != nil {
+		log.Fatalf("create assistant service: %v", err)
+	}
+	assistantHandler := handler.NewAssistantHandler(assistantService)
 
 	r.GET("/ping", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
@@ -109,11 +136,17 @@ func main() {
 		apiRoutes.DELETE("/awards/:id", awardHandler.Delete)
 		apiRoutes.POST("/resumes/:id/awards/:awardId", awardHandler.Attach)
 		apiRoutes.DELETE("/resumes/:id/awards/:awardId", awardHandler.Detach)
+		apiRoutes.POST("/assistant/chat", assistantHandler.Chat)
+		apiRoutes.POST("/assistant/chat/stream", assistantHandler.Stream)
 	}
 
 	log.Printf(
-		"connected to PostgreSQL database %q; server listening on %s",
+		"connected to PostgreSQL database %q; RAG provider=%s model=%s vector_threshold=%.4f final_top_k=%d; server listening on %s",
 		cfg.Database.Name,
+		cfg.AI.Embedding.Provider,
+		cfg.AI.Embedding.Model,
+		cfg.Assistant.RAGVectorMinSimilarity,
+		cfg.Assistant.RAGFinalTopK,
 		cfg.ServerAddr,
 	)
 	if err := r.Run(cfg.ServerAddr); err != nil {

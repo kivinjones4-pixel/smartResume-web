@@ -55,6 +55,52 @@ curl http://127.0.0.1:8080/ping
 独立的 `DB_USER`、`DB_PASSWORD`、`JWT_ACCESS_SECRET`、
 `JWT_REFRESH_SECRET` 和合适的 `DB_SSLMODE`。
 
+### 导入平台助手知识库
+
+首次导入前执行 `scripts/init_knowledge_rag.sql`，并配置独立的 Chat 与
+Embedding 服务环境变量。知识库导入只调用 Embedding 服务，不调用 Chat 模型。
+
+```bash
+set -a
+source .env
+set +a
+go run ./cmd/knowledge-import
+```
+
+导入器读取 `KNOWLEDGE_PATH` 下的 Markdown 文件，跳过 `internal` 和非
+`active` 文档，按标题及段落切分后写入 PostgreSQL/pgvector。相同内容及相同
+Embedding 模型不会重复生成向量；更换 Embedding 模型后会自动重新生成。
+
+混合检索还需要执行一次 `scripts/init_hybrid_search.sql` 来启用 `pg_trgm`
+并创建标题、正文的模糊关键词索引：
+
+```bash
+psql -v ON_ERROR_STOP=1 -f scripts/init_hybrid_search.sql
+```
+
+运行时会分别取得向量与关键词候选，再使用 RRF 合并排名。姓名、邮箱、项目名
+等精确关键词命中不受向量相似度阈值限制。
+
+可使用下面的 SQL 检查最近一次导入结果：
+
+```sql
+SELECT status, documents_scanned, documents_changed, chunks_written, error_message
+FROM knowledge_import_runs
+ORDER BY started_at DESC
+LIMIT 1;
+```
+
+### 平台助手接口
+
+`POST /api/v1/assistant/chat` 需要 Access Token。后端会依次调用 Embedding
+服务、pgvector 检索和 Chat 服务，并在项目标准响应包中返回答案与知识来源。
+
+```json
+{
+  "message": "SmartResume 是做什么的？"
+}
+```
+
 ### 认证接口
 
 | Method | Path | 说明 |

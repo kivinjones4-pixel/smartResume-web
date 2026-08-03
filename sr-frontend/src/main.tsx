@@ -7,6 +7,7 @@ import { AuthProvider } from './store/Auth.ts'
 import ProtectedRoute from './components/ProtectedRoute.tsx'
 import AuthPage from './pages/AuthPage/AuthPage.tsx'
 import { ResumeProvider } from './store/Resume.ts'
+import KKAssistant from './components/KKAssistant/KKAssistant.tsx'
 
 export const ResumeWorkspace = lazy(() => import('./pages/ResumeWorkspace/ResumeWorkspace.tsx'))
 
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')!).render(
               }
             />
           </Routes>
+          <KKAssistant />
         </Suspense>
       </AuthProvider>
     </BrowserRouter>

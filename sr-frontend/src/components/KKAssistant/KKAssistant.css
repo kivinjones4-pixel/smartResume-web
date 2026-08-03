@@ -1,0 +1,193 @@
+.kk-float-button {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 1200;
+  width: 58px;
+  height: 58px;
+  border: 0;
+  border-radius: 20px 20px 20px 7px;
+  color: #fff;
+  background: linear-gradient(145deg, #7067ee, #4d4ecb);
+  box-shadow: 0 16px 38px rgba(67, 66, 183, 0.34);
+  font-size: 25px;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.kk-float-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 42px rgba(67, 66, 183, 0.42);
+}
+
+.kk-float-button.is-open {
+  border-radius: 50%;
+  background: #293248;
+  font-size: 19px;
+}
+
+.kk-float-dot {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #38c98b;
+}
+
+.kk-dialog {
+  position: fixed;
+  right: 28px;
+  bottom: 100px;
+  z-index: 1199;
+  width: min(400px, calc(100vw - 32px));
+  height: min(650px, calc(100vh - 132px));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  border: 1px solid rgba(220, 222, 237, 0.92);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 80px rgba(34, 39, 79, 0.23);
+  animation: kk-dialog-in 180ms ease-out;
+}
+
+@keyframes kk-dialog-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.kk-dialog-header {
+  min-height: 72px;
+  padding: 14px 14px 14px 18px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 85% 10%, rgba(255, 255, 255, 0.17), transparent 30%),
+    linear-gradient(135deg, #595bd8, #7668e8);
+}
+
+.kk-dialog-header .kk-avatar {
+  color: #595bd8;
+  background: #fff;
+}
+
+.kk-dialog-header strong,
+.kk-dialog-header span {
+  display: block;
+}
+
+.kk-dialog-header strong { font-size: 15px; }
+.kk-dialog-header span { margin-top: 3px; color: rgba(255, 255, 255, 0.78); font-size: 11px; }
+.kk-dialog-header span i {
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  display: inline-block;
+  border-radius: 50%;
+  background: #63e6ad;
+}
+.kk-dialog-header .ant-btn { color: rgba(255, 255, 255, 0.86); }
+
+.kk-message-list {
+  min-height: 0;
+  padding: 18px;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #f8f8fd, #fbfbfe);
+}
+
+.kk-welcome {
+  padding: 14px;
+  display: flex;
+  gap: 10px;
+  border: 1px solid #e8e7f7;
+  border-radius: 15px;
+  background: #fff;
+}
+.kk-welcome .ant-avatar { flex: none; color: #5b5ce2; background: #efefff; }
+.kk-welcome strong { color: #252d43; font-size: 14px; }
+.kk-welcome p { margin: 4px 0 0; color: #737b8e; font-size: 12px; line-height: 1.6; }
+
+.kk-suggestions { margin: 18px 0 6px; }
+.kk-suggestions > span { display: block; margin-bottom: 9px; color: #969cad; font-size: 11px; }
+.kk-suggestions button {
+  width: 100%;
+  margin: 0 0 7px;
+  padding: 9px 12px;
+  border: 1px solid #e4e4f2;
+  border-radius: 10px;
+  color: #50586c;
+  background: #fff;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+.kk-suggestions button:hover { color: #5556d0; border-color: #c9c7f3; background: #f8f8ff; }
+
+.kk-message { margin-top: 16px; display: flex; align-items: flex-start; gap: 8px; }
+.kk-message.user { justify-content: flex-end; }
+.kk-message-body { max-width: 84%; }
+.kk-bubble {
+  padding: 10px 12px;
+  border-radius: 5px 14px 14px 14px;
+  color: #3e465a;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(45, 49, 84, 0.06);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.kk-message.user .kk-bubble {
+  border-radius: 14px 14px 5px 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #6565df, #5a50c9);
+}
+.kk-bubble.is-error { color: #b42318; background: #fff0ef; }
+
+.kk-sources { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 5px; }
+.kk-sources > span { width: 100%; color: #9a9faf; font-size: 10px; }
+.kk-sources a,
+.kk-sources .ant-tag {
+  margin: 0;
+  padding: 2px 7px;
+  border: 1px solid #dfdef2;
+  border-radius: 7px;
+  color: #5a58bd;
+  background: #f6f5ff;
+  font-size: 10px;
+  text-decoration: none;
+}
+
+.kk-composer {
+  padding: 12px 14px 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  border-top: 1px solid #ebebf2;
+  background: #fff;
+}
+.kk-composer .ant-input { padding: 8px 10px; border-radius: 11px; resize: none; }
+.kk-composer .ant-btn { align-self: end; }
+.kk-composer small { grid-column: 1 / -1; color: #aaaebb; text-align: center; font-size: 9px; }
+
+@media (max-width: 600px) {
+  .kk-float-button { right: 16px; bottom: 18px; }
+  .kk-dialog {
+    right: 8px;
+    bottom: 88px;
+    width: calc(100vw - 16px);
+    height: min(680px, calc(100vh - 104px));
+    border-radius: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kk-dialog { animation: none; }
+  .kk-float-button { transition: none; }
+}

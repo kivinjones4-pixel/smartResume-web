@@ -38,8 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user)
       },
       logout: async () => {
-        await authService.logout()
-        setUser(null)
+		try {
+			await authService.logout()
+		} finally {
+			setUser(null)
+		}
       },
     }),
     [loading, user],

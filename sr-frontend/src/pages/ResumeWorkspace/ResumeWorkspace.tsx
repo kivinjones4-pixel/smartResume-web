@@ -97,6 +97,7 @@ import type { ResumeModuleKey } from '../../types/ResumeWorkspace'
 import { getErrorMessage, isFormValidationError } from '../../utils/error'
 import EditorForm from './components/EditorForm'
 import ResumePaper from './components/ResumePaper'
+import { RESUME_TEMPLATES, type ResumeTemplateKey } from './components/ResumeTemplates'
 
 const { Text, Title } = Typography
 
@@ -139,6 +140,7 @@ function ResumeWorkspace() {
     selectResume,
     createResume,
     renameResume,
+    updateResumeTemplate,
     deleteResume,
     saveBasicProfile,
   } = useResumeStore()
@@ -186,8 +188,32 @@ function ResumeWorkspace() {
   const [renameTarget, setRenameTarget] = useState<Resume | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [renameSaving, setRenameSaving] = useState(false)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [createSaving, setCreateSaving] = useState(false)
+  const [newResumeTitle, setNewResumeTitle] = useState('未命名简历')
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<ResumeTemplateKey>('default')
+  const [templateSaving, setTemplateSaving] = useState(false)
 
   const currentModule = modules.find((item) => item.key === activeModule) ?? modules[0]
+  const currentTemplateKey: ResumeTemplateKey = RESUME_TEMPLATES.some(
+    (template) => template.key === selectedResumeData?.template_key,
+  )
+    ? (selectedResumeData?.template_key as ResumeTemplateKey)
+    : 'default'
+  const createPreviewResume: Resume = selectedResumeData
+    ? { ...selectedResumeData, title: newResumeTitle, template_key: selectedTemplateKey }
+    : {
+        id: 'template-preview',
+        title: newResumeTitle,
+        target_position: null,
+        target_company: null,
+        template_key: selectedTemplateKey,
+        language_code: 'zh-CN',
+        status: 'draft',
+        is_default: false,
+        created_at: '',
+        updated_at: '',
+      }
   useEffect(() => {
     void load().catch((error) => message.error(getErrorMessage(error, '加载基本信息失败')))
   }, [load])
@@ -475,12 +501,35 @@ function ResumeWorkspace() {
     if (editorCollapsed) setEditorCollapsed(false)
   }
 
+  const openCreateResumeModal = () => {
+    setNewResumeTitle('未命名简历')
+    setSelectedTemplateKey('default')
+    setCreateModalOpen(true)
+  }
+
   const handleCreateResume = async () => {
+    setCreateSaving(true)
     try {
-      await createResume()
+      await createResume(newResumeTitle.trim() || '未命名简历', selectedTemplateKey)
+      setCreateModalOpen(false)
       message.success('已新建简历')
     } catch (error) {
       message.error(getErrorMessage(error, '新建简历失败'))
+    } finally {
+      setCreateSaving(false)
+    }
+  }
+
+  const handleTemplateChange = async (templateKey: ResumeTemplateKey) => {
+    if (!selectedResumeData || selectedResumeData.template_key === templateKey) return
+    setTemplateSaving(true)
+    try {
+      await updateResumeTemplate(selectedResumeData.id, templateKey)
+      message.success('模板已切换')
+    } catch (error) {
+      message.error(getErrorMessage(error, '切换模板失败'))
+    } finally {
+      setTemplateSaving(false)
     }
   }
 
@@ -1993,6 +2042,18 @@ function ResumeWorkspace() {
             <Space>
               <Select
                 size="small"
+                className="w-32"
+                value={currentTemplateKey}
+                loading={templateSaving}
+                disabled={!selectedResumeData || templateSaving}
+                options={RESUME_TEMPLATES.map((template) => ({
+                  value: template.key,
+                  label: template.name,
+                }))}
+                onChange={handleTemplateChange}
+              />
+              <Select
+                size="small"
                 defaultValue="100"
                 options={[
                   { value: '80', label: '80%' },
@@ -2020,14 +2081,22 @@ function ResumeWorkspace() {
 
           <div className="flex min-h-[calc(100%-54px)] justify-center p-9">
             {selectedResumeData ? (
-              <ResumePaper title={selectedResumeData.title} />
+              <ResumePaper
+                resume={selectedResumeData}
+                profile={profile}
+                educations={currentEducations}
+                internships={currentInternships}
+                workExperiences={currentWorkExperiences}
+                projectExperiences={currentProjectExperiences}
+                awards={currentAwards}
+              />
             ) : (
               <div className="grid min-h-150 w-full place-items-center">
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description="暂无简历，请从右侧新建一份简历"
                 >
-                  <Button type="primary" icon={<FileAddOutlined />} onClick={handleCreateResume}>
+                  <Button type="primary" icon={<FileAddOutlined />} onClick={openCreateResumeModal}>
                     新建简历
                   </Button>
                 </Empty>
@@ -2059,7 +2128,7 @@ function ResumeWorkspace() {
             </div>
 
             <div className="border-b border-slate-100 p-4">
-              <Button block type="primary" icon={<PlusOutlined />} onClick={handleCreateResume}>
+              <Button block type="primary" icon={<PlusOutlined />} onClick={openCreateResumeModal}>
                 新建简历
               </Button>
             </div>
@@ -2139,6 +2208,77 @@ function ResumeWorkspace() {
           </div>
         </aside>
       </main>
+      <Modal
+        title="新建简历"
+        open={createModalOpen}
+        okText="创建简历"
+        cancelText="取消"
+        confirmLoading={createSaving}
+        okButtonProps={{ disabled: !newResumeTitle.trim() }}
+        width={1040}
+        onOk={handleCreateResume}
+        onCancel={() => {
+          if (!createSaving) setCreateModalOpen(false)
+        }}
+      >
+        <div className="mt-5 grid grid-cols-[360px_1fr] gap-7">
+          <div>
+            <Text strong>简历标题</Text>
+            <Input
+              className="mt-2"
+              value={newResumeTitle}
+              maxLength={150}
+              showCount
+              placeholder="请输入简历标题"
+              onChange={(event) => setNewResumeTitle(event.target.value)}
+            />
+            <Text strong className="mt-5 block!">选择模板</Text>
+            <div className="mt-2 space-y-3">
+              {RESUME_TEMPLATES.map((template) => {
+                const selected = selectedTemplateKey === template.key
+                return (
+                  <button
+                    key={template.key}
+                    type="button"
+                    className={`block w-full rounded-xl border p-3 text-left transition ${
+                      selected
+                        ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100'
+                        : 'border-slate-200 hover:border-indigo-300'
+                    }`}
+                    onClick={() => setSelectedTemplateKey(template.key)}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <Text strong>{template.name}</Text>
+                      {selected && <Tag color="blue" className="m-0!">已选择</Tag>}
+                    </span>
+                    <Text className="mt-1 block! text-xs! leading-5! text-slate-500!">
+                      {template.description}
+                    </Text>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div>
+            <Text strong>实时预览</Text>
+            <div className="mt-2 flex h-130 justify-center overflow-hidden rounded-xl bg-slate-100 p-4">
+              <div className="h-125 w-90 overflow-hidden shadow-lg">
+                <div className="origin-top-left" style={{ transform: 'scale(0.5)' }}>
+                  <ResumePaper
+                    resume={createPreviewResume}
+                    profile={profile}
+                    educations={currentEducations}
+                    internships={currentInternships}
+                    workExperiences={currentWorkExperiences}
+                    projectExperiences={currentProjectExperiences}
+                    awards={currentAwards}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
       <Modal
         title="修改简历标题"
         open={Boolean(renameTarget)}

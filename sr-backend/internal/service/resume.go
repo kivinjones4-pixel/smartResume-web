@@ -44,10 +44,14 @@ func (s *ResumeService) List(userID string) ([]model.Resume, error) {
 	return resumes, err
 }
 
-func (s *ResumeService) Create(userID, title string) (*model.Resume, error) {
+func (s *ResumeService) Create(userID, title, templateKey string) (*model.Resume, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		title = "未命名简历"
+	}
+	templateKey = strings.TrimSpace(templateKey)
+	if templateKey == "" {
+		templateKey = "default"
 	}
 	var resume model.Resume
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -58,7 +62,7 @@ func (s *ResumeService) Create(userID, title string) (*model.Resume, error) {
 		resume = model.Resume{
 			UserID:       userID,
 			Title:        title,
-			TemplateKey:  "default",
+			TemplateKey:  templateKey,
 			LanguageCode: "zh-CN",
 			Status:       "draft",
 			IsDefault:    count == 0,
@@ -74,6 +78,23 @@ func (s *ResumeService) Rename(userID, resumeID, title string) (*model.Resume, e
 	result := s.db.Model(&model.Resume{}).
 		Where("id = ? AND user_id = ?", resumeID, userID).
 		Update("title", title)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, ErrResumeNotFound
+	}
+	if err := s.db.Where("id = ? AND user_id = ?", resumeID, userID).First(&resume).Error; err != nil {
+		return nil, err
+	}
+	return &resume, nil
+}
+
+func (s *ResumeService) UpdateTemplate(userID, resumeID, templateKey string) (*model.Resume, error) {
+	var resume model.Resume
+	result := s.db.Model(&model.Resume{}).
+		Where("id = ? AND user_id = ?", resumeID, userID).
+		Update("template_key", strings.TrimSpace(templateKey))
 	if result.Error != nil {
 		return nil, result.Error
 	}

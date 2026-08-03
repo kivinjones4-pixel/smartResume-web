@@ -162,8 +162,9 @@ export type ResumeStoreValue = {
   loading: boolean
   load: () => Promise<void>
   selectResume: (id: string) => void
-  createResume: (title?: string) => Promise<Resume>
+  createResume: (title?: string, templateKey?: string) => Promise<Resume>
   renameResume: (id: string, title: string) => Promise<void>
+  updateResumeTemplate: (id: string, templateKey: string) => Promise<void>
   deleteResume: (id: string) => Promise<void>
   saveBasicProfile: (values: BasicProfileValues) => Promise<void>
 }

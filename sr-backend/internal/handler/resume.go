@@ -17,11 +17,13 @@ type ResumeHandler struct {
 }
 
 type createResumeRequest struct {
-	Title string `json:"title" binding:"max=150"`
+	Title       string `json:"title" binding:"max=150"`
+	TemplateKey string `json:"template_key" binding:"omitempty,oneof=default professional creative traditional"`
 }
 
 type renameResumeRequest struct {
-	Title string `json:"title" binding:"required,max=150"`
+	Title       *string `json:"title" binding:"omitempty,max=150"`
+	TemplateKey *string `json:"template_key" binding:"omitempty,oneof=default professional creative traditional"`
 }
 
 type saveBasicProfileRequest struct {
@@ -60,7 +62,7 @@ func (h *ResumeHandler) Create(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "INVALID_RESUME_TITLE", "简历名称不能超过 150 个字符")
 		return
 	}
-	resume, err := h.service.Create(c.GetString(middleware.UserIDKey), req.Title)
+	resume, err := h.service.Create(c.GetString(middleware.UserIDKey), req.Title, req.TemplateKey)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "RESUME_CREATE_FAILED", "新建简历失败")
 		return
@@ -70,15 +72,21 @@ func (h *ResumeHandler) Create(c *gin.Context) {
 
 func (h *ResumeHandler) Rename(c *gin.Context) {
 	var req renameResumeRequest
-	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Title) == "" {
-		response.Error(c, http.StatusBadRequest, "INVALID_RESUME_TITLE", "请输入 1–150 个字符的简历标题")
+	if err := c.ShouldBindJSON(&req); err != nil || (req.Title == nil && req.TemplateKey == nil) {
+		response.Error(c, http.StatusBadRequest, "INVALID_RESUME_INPUT", "请提交有效的简历标题或模板")
 		return
 	}
-	resume, err := h.service.Rename(
-		c.GetString(middleware.UserIDKey),
-		c.Param("id"),
-		req.Title,
-	)
+	var resume interface{}
+	var err error
+	if req.Title != nil {
+		if strings.TrimSpace(*req.Title) == "" {
+			response.Error(c, http.StatusBadRequest, "INVALID_RESUME_TITLE", "请输入 1–150 个字符的简历标题")
+			return
+		}
+		resume, err = h.service.Rename(c.GetString(middleware.UserIDKey), c.Param("id"), *req.Title)
+	} else {
+		resume, err = h.service.UpdateTemplate(c.GetString(middleware.UserIDKey), c.Param("id"), *req.TemplateKey)
+	}
 	if errors.Is(err, service.ErrResumeNotFound) {
 		response.Error(c, http.StatusNotFound, "RESUME_NOT_FOUND", err.Error())
 		return

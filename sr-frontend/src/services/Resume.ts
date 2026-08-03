@@ -20,8 +20,11 @@ export async function listResumes() {
   return response.resumes
 }
 
-export async function createResume(title = '未命名简历') {
-  const response = await http.post<{ resume: Resume }>('/api/v1/resumes', { title })
+export async function createResume(title = '未命名简历', templateKey = 'default') {
+  const response = await http.post<{ resume: Resume }>('/api/v1/resumes', {
+    title,
+    template_key: templateKey,
+  })
   return response.resume
 }
 
@@ -29,6 +32,14 @@ export async function renameResume(id: string, title: string) {
   const response = await http.patch<{ resume: Resume }>(
     `/api/v1/resumes/${encodeURIComponent(id)}`,
     { title },
+  )
+  return response.resume
+}
+
+export async function updateResumeTemplate(id: string, templateKey: string) {
+  const response = await http.patch<{ resume: Resume }>(
+    `/api/v1/resumes/${encodeURIComponent(id)}`,
+    { template_key: templateKey },
   )
   return response.resume
 }

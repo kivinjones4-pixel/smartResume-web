@@ -39,8 +39,8 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const createResume = useCallback(async (title?: string) => {
-    const resume = await resumeService.createResume(title)
+  const createResume = useCallback(async (title?: string, templateKey?: string) => {
+    const resume = await resumeService.createResume(title, templateKey)
     setResumes((current) => [resume, ...current])
     setSelectedResumeId(resume.id)
     return resume
@@ -48,6 +48,13 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
 
   const renameResume = useCallback(async (id: string, title: string) => {
     const updatedResume = await resumeService.renameResume(id, title)
+    setResumes((current) =>
+      current.map((item) => (item.id === updatedResume.id ? updatedResume : item)),
+    )
+  }, [])
+
+  const updateResumeTemplate = useCallback(async (id: string, templateKey: string) => {
+    const updatedResume = await resumeService.updateResumeTemplate(id, templateKey)
     setResumes((current) =>
       current.map((item) => (item.id === updatedResume.id ? updatedResume : item)),
     )
@@ -88,6 +95,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
       selectResume: setSelectedResumeId,
       createResume,
       renameResume,
+      updateResumeTemplate,
       deleteResume,
       saveBasicProfile,
     }
@@ -99,6 +107,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     profile,
     resumes,
     renameResume,
+    updateResumeTemplate,
     saveBasicProfile,
     selectedResumeId,
   ])

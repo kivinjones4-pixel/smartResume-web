@@ -25,6 +25,7 @@ import {
   Avatar,
   Button,
   Dropdown,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -95,6 +96,13 @@ import type {
 } from '../../types/Resume'
 import type { ResumeModuleKey } from '../../types/ResumeWorkspace'
 import { getErrorMessage, isFormValidationError } from '../../utils/error'
+import {
+  polishResumeRecord,
+  polishWholeResume,
+  type PolishableModule,
+  type PolishSuggestion,
+  type ResumePolishItem,
+} from '../../services/Polish'
 import EditorForm from './components/EditorForm'
 import ResumePaper from './components/ResumePaper'
 import { RESUME_TEMPLATES, type ResumeTemplateKey } from './components/ResumeTemplates'
@@ -127,6 +135,8 @@ const navItems = [
   { label: '使用流程', path: '/#workflow' },
 ]
 
+const toAPIDate = (value: string | null) => value?.slice(0, 10) ?? ''
+
 function ResumeWorkspace() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -150,6 +160,7 @@ function ResumeWorkspace() {
   const workFormRef = useRef<FormInstance<WorkFormValues>>(null)
   const projectFormRef = useRef<FormInstance<ProjectFormValues>>(null)
   const awardFormRef = useRef<FormInstance<AwardFormValues>>(null)
+  const selectedResumeIdRef = useRef(selectedResumeId)
   const [educations, setEducations] = useState<Education[]>([])
   const [currentEducationIds, setCurrentEducationIds] = useState<string[]>([])
   const [educationScope, setEducationScope] = useState<'current' | 'all'>('current')
@@ -193,8 +204,29 @@ function ResumeWorkspace() {
   const [newResumeTitle, setNewResumeTitle] = useState('未命名简历')
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<ResumeTemplateKey>('default')
   const [templateSaving, setTemplateSaving] = useState(false)
+  const [polishing, setPolishing] = useState(false)
+  const [polishGeneratedKey, setPolishGeneratedKey] = useState('')
+  const [wholeResumePolishing, setWholeResumePolishing] = useState(false)
+  const [polishSuggestions, setPolishSuggestions] = useState<PolishSuggestion[]>([])
+  const [suggestionResumeId, setSuggestionResumeId] = useState('')
+  const [suggestionDrawerOpen, setSuggestionDrawerOpen] = useState(false)
+  const [acceptingSuggestionId, setAcceptingSuggestionId] = useState('')
 
   const currentModule = modules.find((item) => item.key === activeModule) ?? modules[0]
+  const currentPolishKey = `${activeModule}:${
+    activeModule === 'education'
+      ? creatingEducation ? 'new' : selectedEducationId
+      : activeModule === 'internship'
+        ? creatingInternship ? 'new' : selectedInternshipId
+        : activeModule === 'work'
+          ? creatingWork ? 'new' : selectedWorkId
+          : activeModule === 'project'
+            ? creatingProject ? 'new' : selectedProjectId
+            : activeModule === 'award'
+              ? creatingAward ? 'new' : selectedAwardId
+              : 'profile'
+  }`
+  const visiblePolishSuggestions = suggestionResumeId === selectedResumeId ? polishSuggestions : []
   const currentTemplateKey: ResumeTemplateKey = RESUME_TEMPLATES.some(
     (template) => template.key === selectedResumeData?.template_key,
   )
@@ -227,6 +259,10 @@ function ResumeWorkspace() {
       target_position: selectedResumeData?.target_position ?? '',
     })
   }, [profile, profileForm, selectedResumeData, selectedResumeId])
+
+  useEffect(() => {
+    selectedResumeIdRef.current = selectedResumeId
+  }, [selectedResumeId])
 
   useEffect(() => {
     if (!selectedResumeId) {
@@ -498,7 +534,237 @@ function ResumeWorkspace() {
   const selectModule = (key: ResumeModuleKey) => {
     setActiveModule(key)
     setRecordIndex(0)
+    setPolishGeneratedKey('')
     if (editorCollapsed) setEditorCollapsed(false)
+  }
+
+  const handlePolish = async () => {
+    if (activeModule === 'profile') return
+    const form =
+      activeModule === 'education'
+        ? educationFormRef.current
+        : activeModule === 'internship'
+          ? internshipFormRef.current
+          : activeModule === 'work'
+            ? workFormRef.current
+            : activeModule === 'project'
+              ? projectFormRef.current
+              : awardFormRef.current
+    if (!form) return
+
+    const values = form.getFieldsValue(true) as Record<string, unknown>
+    const fields =
+      activeModule === 'education' || activeModule === 'award'
+        ? ['description']
+        : ['achievements', 'description']
+    const content = Object.fromEntries(
+      fields.map((field) => [field, String(values[field] ?? '').trim()]).filter(([, value]) => value),
+    )
+    if (Object.keys(content).length === 0) {
+      message.warning('请先填写需要润色的描述或成就')
+      return
+    }
+    const excludedFields = new Set([...fields, 'start_date', 'end_date', 'is_current'])
+    const context = Object.fromEntries(
+      Object.entries(values)
+        .filter(([field, value]) => !excludedFields.has(field) && typeof value === 'string' && value.trim())
+        .map(([field, value]) => [field, String(value).trim()]),
+    )
+
+    setPolishing(true)
+    setPolishGeneratedKey('')
+    try {
+      const result = await polishResumeRecord({
+        module: activeModule as PolishableModule,
+        context,
+        content,
+      })
+      const accepted = Object.fromEntries(
+        fields
+          .filter((field) => typeof result.content[field] === 'string' && result.content[field].trim())
+          .map((field) => [field, result.content[field]]),
+      )
+      form.setFieldsValue(accepted)
+      setPolishGeneratedKey(currentPolishKey)
+    } catch (error) {
+      message.error(getErrorMessage(error, 'AI 润色失败，请稍后再试'))
+    } finally {
+      setPolishing(false)
+    }
+  }
+
+  const handleWholeResumePolish = async () => {
+    if (!selectedResumeData) return
+    const requestResumeId = selectedResumeData.id
+    const items: ResumePolishItem[] = [
+      ...currentEducations.map((item) => ({
+        module: 'education' as const,
+        record_id: item.id,
+        context: { school_name: item.school_name, degree: item.degree ?? '', field_of_study: item.field_of_study ?? '' },
+        content: { description: item.description ?? '' },
+      })),
+      ...currentInternships.map((item) => ({
+        module: 'internship' as const,
+        record_id: item.id,
+        context: { company_name: item.company_name, position_title: item.position_title },
+        content: { achievements: item.achievements.join('\n'), description: item.description ?? '' },
+      })),
+      ...currentWorkExperiences.map((item) => ({
+        module: 'work' as const,
+        record_id: item.id,
+        context: { company_name: item.company_name, position_title: item.position_title },
+        content: { achievements: item.achievements.join('\n'), description: item.description ?? '' },
+      })),
+      ...currentProjectExperiences.map((item) => ({
+        module: 'project' as const,
+        record_id: item.id,
+        context: { project_name: item.project_name, role_name: item.role_name },
+        content: { achievements: item.achievements.join('\n'), description: item.description ?? '' },
+      })),
+      ...currentAwards.map((item) => ({
+        module: 'award' as const,
+        record_id: item.id,
+        context: { award_name: item.award_name, issuer: item.issuer },
+        content: { description: item.description ?? '' },
+      })),
+    ]
+    if (!items.some((item) => Object.values(item.content).some((value) => value.trim()))) {
+      message.warning('请先完善简历中的描述或成就')
+      return
+    }
+    setWholeResumePolishing(true)
+    setPolishSuggestions([])
+    setSuggestionResumeId(requestResumeId)
+    try {
+      const result = await polishWholeResume({
+        target_position: selectedResumeData.target_position ?? '',
+        items,
+      })
+      if (selectedResumeIdRef.current !== requestResumeId) return
+      setPolishSuggestions(result.suggestions)
+      setSuggestionDrawerOpen(true)
+      if (result.suggestions.length === 0) message.info('AI 暂未发现需要润色的内容')
+    } catch (error) {
+      message.error(getErrorMessage(error, '整份简历润色失败，请稍后再试'))
+    } finally {
+      setWholeResumePolishing(false)
+    }
+  }
+
+  const ignoreSuggestion = (id: string) => {
+    setPolishSuggestions((current) => current.filter((item) => item.id !== id))
+  }
+
+  const saveSuggestionGroup = async (group: PolishSuggestion[]) => {
+    if (!selectedResumeId || group.length === 0) throw new Error('未找到需要采纳的建议')
+    const suggestion = group[0]
+    const valueFor = (field: PolishSuggestion['field'], fallback: string) =>
+      group.find((item) => item.field === field)?.suggested ?? fallback
+
+    if (suggestion.module === 'education') {
+        const item = educations.find((entry) => entry.id === suggestion.record_id)
+        if (!item) throw new Error('教育经历不存在')
+        const description = valueFor('description', item.description ?? '')
+        const saved = await updateEducation(item.id, {
+          resume_id: selectedResumeId, school_name: item.school_name,
+          degree: item.degree ?? undefined, field_of_study: item.field_of_study ?? undefined,
+          location: item.location ?? undefined, start_date: toAPIDate(item.start_date),
+          end_date: item.end_date ? toAPIDate(item.end_date) : undefined, is_current: item.is_current, gpa: item.gpa ?? undefined,
+          description,
+        })
+        setEducations((current) => current.map((entry) => entry.id === saved.id ? saved : entry))
+        if (selectedEducationId === item.id) educationFormRef.current?.setFieldValue('description', description)
+      } else if (suggestion.module === 'internship' || suggestion.module === 'work') {
+        const collection = suggestion.module === 'internship' ? internships : workExperiences
+        const item = collection.find((entry) => entry.id === suggestion.record_id)
+        if (!item) throw new Error('工作或实习经历不存在')
+        const achievementsText = valueFor('achievements', item.achievements.join('\n'))
+        const achievements = achievementsText.split('\n').map((value) => value.trim()).filter(Boolean)
+        const description = valueFor('description', item.description ?? '')
+        const payload = {
+          resume_id: selectedResumeId, company_name: item.company_name,
+          position_title: item.position_title, department: item.department ?? undefined,
+          location: item.location ?? undefined, start_date: toAPIDate(item.start_date),
+          end_date: item.end_date ? toAPIDate(item.end_date) : undefined, is_current: item.is_current, achievements,
+          description,
+        }
+        const saved = suggestion.module === 'internship'
+          ? await updateInternship(item.id, payload)
+          : await updateWorkExperience(item.id, payload)
+        if (suggestion.module === 'internship') {
+          setInternships((current) => current.map((entry) => entry.id === saved.id ? saved : entry))
+          if (selectedInternshipId === item.id) internshipFormRef.current?.setFieldsValue({ achievements: achievementsText, description })
+        } else {
+          setWorkExperiences((current) => current.map((entry) => entry.id === saved.id ? saved : entry))
+          if (selectedWorkId === item.id) workFormRef.current?.setFieldsValue({ achievements: achievementsText, description })
+        }
+      } else if (suggestion.module === 'project') {
+        const item = projectExperiences.find((entry) => entry.id === suggestion.record_id)
+        if (!item) throw new Error('项目经历不存在')
+        const achievementsText = valueFor('achievements', item.achievements.join('\n'))
+        const achievements = achievementsText.split('\n').map((value) => value.trim()).filter(Boolean)
+        const description = valueFor('description', item.description ?? '')
+        const saved = await updateProjectExperience(item.id, {
+          resume_id: selectedResumeId, project_name: item.project_name, role_name: item.role_name,
+          project_url: item.project_url ?? undefined, repository_url: item.repository_url ?? undefined,
+          start_date: toAPIDate(item.start_date), end_date: item.end_date ? toAPIDate(item.end_date) : undefined,
+          is_current: item.is_current, achievements,
+          description,
+        })
+        setProjectExperiences((current) => current.map((entry) => entry.id === saved.id ? saved : entry))
+        if (selectedProjectId === item.id) projectFormRef.current?.setFieldsValue({ achievements: achievementsText, description })
+      } else {
+        const item = awards.find((entry) => entry.id === suggestion.record_id)
+        if (!item) throw new Error('获奖记录不存在')
+        const description = valueFor('description', item.description ?? '')
+        const saved = await updateAward(item.id, {
+          resume_id: selectedResumeId, award_name: item.award_name, issuer: item.issuer,
+          certificate_url: item.certificate_url ?? undefined, description,
+        })
+        setAwards((current) => current.map((entry) => entry.id === saved.id ? saved : entry))
+        if (selectedAwardId === item.id) awardFormRef.current?.setFieldValue('description', description)
+      }
+  }
+
+  const acceptSuggestion = async (suggestion: PolishSuggestion) => {
+    setAcceptingSuggestionId(suggestion.id)
+    try {
+      await saveSuggestionGroup([suggestion])
+      ignoreSuggestion(suggestion.id)
+      message.success('已采纳并同步更新简历')
+    } catch (error) {
+      message.error(getErrorMessage(error, '采纳建议失败'))
+    } finally {
+      setAcceptingSuggestionId('')
+    }
+  }
+
+  const ignoreAllSuggestions = () => {
+    const ids = new Set(visiblePolishSuggestions.map((item) => item.id))
+    setPolishSuggestions((current) => current.filter((item) => !ids.has(item.id)))
+  }
+
+  const acceptAllSuggestions = async () => {
+    const groups = new Map<string, PolishSuggestion[]>()
+    for (const suggestion of visiblePolishSuggestions) {
+      const key = `${suggestion.module}:${suggestion.record_id}`
+      groups.set(key, [...(groups.get(key) ?? []), suggestion])
+    }
+    setAcceptingSuggestionId('all')
+    const acceptedIds = new Set<string>()
+    try {
+      for (const group of groups.values()) {
+        await saveSuggestionGroup(group)
+        group.forEach((item) => acceptedIds.add(item.id))
+      }
+      setPolishSuggestions((current) => current.filter((item) => !acceptedIds.has(item.id)))
+      message.success(`已采纳并同步更新 ${acceptedIds.size} 条建议`)
+    } catch (error) {
+      setPolishSuggestions((current) => current.filter((item) => !acceptedIds.has(item.id)))
+      message.error(getErrorMessage(error, '批量采纳失败，已保留未处理建议'))
+    } finally {
+      setAcceptingSuggestionId('')
+    }
   }
 
   const openCreateResumeModal = () => {
@@ -562,6 +828,7 @@ function ResumeWorkspace() {
         }
         setSelectedAwardId(saved.id)
         setCreatingAward(false)
+        setPolishGeneratedKey('')
         message.success(creatingAward ? '获奖记录已新增' : '获奖记录已保存')
       } catch (error) {
         if (!isFormValidationError(error)) {
@@ -604,6 +871,7 @@ function ResumeWorkspace() {
         }
         setSelectedProjectId(saved.id)
         setCreatingProject(false)
+        setPolishGeneratedKey('')
         message.success(creatingProject ? '项目经历已新增' : '项目经历已保存')
       } catch (error) {
         if (!isFormValidationError(error)) {
@@ -646,6 +914,7 @@ function ResumeWorkspace() {
         }
         setSelectedWorkId(saved.id)
         setCreatingWork(false)
+        setPolishGeneratedKey('')
         message.success(creatingWork ? '工作经历已新增' : '工作经历已保存')
       } catch (error) {
         if (!isFormValidationError(error)) {
@@ -688,6 +957,7 @@ function ResumeWorkspace() {
         }
         setSelectedInternshipId(saved.id)
         setCreatingInternship(false)
+        setPolishGeneratedKey('')
         message.success(creatingInternship ? '实习经历已新增' : '实习经历已保存')
       } catch (error) {
         if (!isFormValidationError(error)) {
@@ -726,6 +996,7 @@ function ResumeWorkspace() {
         }
         setSelectedEducationId(saved.id)
         setCreatingEducation(false)
+        setPolishGeneratedKey('')
         message.success(creatingEducation ? '教育经历已新增' : '教育经历已保存')
       } catch (error) {
         if (!isFormValidationError(error)) {
@@ -767,6 +1038,8 @@ function ResumeWorkspace() {
   }
 
   const cancelEducationEdit = () => {
+    educationFormRef.current?.resetFields()
+    setPolishGeneratedKey('')
     setCreatingEducation(false)
     const item = visibleEducations[0]
     setSelectedEducationId(item?.id ?? '')
@@ -851,6 +1124,8 @@ function ResumeWorkspace() {
   }
 
   const cancelInternshipEdit = () => {
+    internshipFormRef.current?.resetFields()
+    setPolishGeneratedKey('')
     setCreatingInternship(false)
     const item = visibleInternships[0]
     setSelectedInternshipId(item?.id ?? '')
@@ -935,6 +1210,8 @@ function ResumeWorkspace() {
   }
 
   const cancelWorkEdit = () => {
+    workFormRef.current?.resetFields()
+    setPolishGeneratedKey('')
     setCreatingWork(false)
     setSelectedWorkId(visibleWorkExperiences[0]?.id ?? '')
   }
@@ -1015,6 +1292,8 @@ function ResumeWorkspace() {
   }
 
   const cancelProjectEdit = () => {
+    projectFormRef.current?.resetFields()
+    setPolishGeneratedKey('')
     setCreatingProject(false)
     setSelectedProjectId(visibleProjectExperiences[0]?.id ?? '')
   }
@@ -1101,6 +1380,8 @@ function ResumeWorkspace() {
   }
 
   const cancelAwardEdit = () => {
+    awardFormRef.current?.resetFields()
+    setPolishGeneratedKey('')
     setCreatingAward(false)
     setSelectedAwardId(visibleAwards[0]?.id ?? '')
   }
@@ -1906,6 +2187,9 @@ function ResumeWorkspace() {
                           }
                     }
                     hasSelectedResume={Boolean(selectedResumeData)}
+                    polishing={polishing}
+                    polishGenerated={polishGeneratedKey === currentPolishKey}
+                    onPolish={handlePolish}
                   />
                 </>
               )}
@@ -2040,6 +2324,21 @@ function ResumeWorkspace() {
               <Tag color="green">自动保存</Tag>
             </div>
             <Space>
+              <Button
+                size="small"
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                loading={wholeResumePolishing}
+                disabled={!selectedResumeData || wholeResumePolishing || visiblePolishSuggestions.length > 0}
+                onClick={handleWholeResumePolish}
+              >
+                AI 帮我润色
+              </Button>
+              {visiblePolishSuggestions.length > 0 && (
+                <Button size="small" onClick={() => setSuggestionDrawerOpen(true)}>
+                  润色建议（{visiblePolishSuggestions.length}）
+                </Button>
+              )}
               <Select
                 size="small"
                 className="w-32"
@@ -2051,15 +2350,6 @@ function ResumeWorkspace() {
                   label: template.name,
                 }))}
                 onChange={handleTemplateChange}
-              />
-              <Select
-                size="small"
-                defaultValue="100"
-                options={[
-                  { value: '80', label: '80%' },
-                  { value: '100', label: '100%' },
-                  { value: '120', label: '120%' },
-                ]}
               />
               <Button size="small" icon={<SettingOutlined />}>
                 页面设置
@@ -2079,7 +2369,17 @@ function ResumeWorkspace() {
             </div>
           )}
 
-          <div className="flex min-h-[calc(100%-54px)] justify-center p-9">
+          <div className="relative flex min-h-[calc(100%-54px)] justify-center p-9">
+            {wholeResumePolishing && (
+              <div className="absolute inset-0 z-20 overflow-hidden bg-slate-900/12 backdrop-blur-[1px]">
+                <div className="absolute inset-x-0 top-1/2 z-10 text-center">
+                  <span className="rounded-full bg-white/95 px-5 py-2 text-sm font-medium text-violet-700 shadow-lg">
+                    AI 正在扫描并分析整份简历…
+                  </span>
+                </div>
+                <div className="resume-scan-line absolute inset-x-8 h-0.5 bg-gradient-to-r from-transparent via-violet-500 to-transparent shadow-[0_0_16px_4px_rgba(139,92,246,0.45)]" />
+              </div>
+            )}
             {selectedResumeData ? (
               <ResumePaper
                 resume={selectedResumeData}
@@ -2089,6 +2389,7 @@ function ResumeWorkspace() {
                 workExperiences={currentWorkExperiences}
                 projectExperiences={currentProjectExperiences}
                 awards={currentAwards}
+                polishSuggestionKeys={visiblePolishSuggestions.map((item) => item.id)}
               />
             ) : (
               <div className="grid min-h-150 w-full place-items-center">
@@ -2208,6 +2509,72 @@ function ResumeWorkspace() {
           </div>
         </aside>
       </main>
+      <Drawer
+        title={`AI 润色建议（${visiblePolishSuggestions.length}）`}
+        width={460}
+        open={suggestionDrawerOpen}
+        onClose={() => setSuggestionDrawerOpen(false)}
+      >
+        {visiblePolishSuggestions.length === 0 ? (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待处理建议" />
+        ) : (
+          <div className="space-y-4">
+            <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl border border-violet-100 bg-white/95 p-3 shadow-sm backdrop-blur">
+              <Text className="text-xs! text-slate-500!">请先处理当前建议，再次进行润色</Text>
+              <Space>
+                <Button size="small" disabled={acceptingSuggestionId === 'all'} onClick={ignoreAllSuggestions}>
+                  全部忽略
+                </Button>
+                <Button
+                  size="small"
+                  type="primary"
+                  loading={acceptingSuggestionId === 'all'}
+                  onClick={() => void acceptAllSuggestions()}
+                >
+                  全部采纳
+                </Button>
+              </Space>
+            </div>
+            {visiblePolishSuggestions.map((suggestion) => (
+              <div key={suggestion.id} className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <Tag color="purple">
+                    {suggestion.module === 'education' ? '教育经历' : suggestion.module === 'internship' ? '实习经历' : suggestion.module === 'work' ? '工作经历' : suggestion.module === 'project' ? '项目经历' : '获奖记录'}
+                    {' · '}
+                    {suggestion.field === 'achievements' ? '成就' : '描述'}
+                  </Tag>
+                </div>
+                <Text className="text-xs! text-slate-400!">原文</Text>
+                <div className="mt-1 whitespace-pre-line rounded-lg bg-white px-3 py-2 text-sm leading-6 text-slate-600">
+                  {suggestion.original}
+                </div>
+                <Text className="mt-3 block! text-xs! text-violet-500!">AI 建议</Text>
+                <div className="mt-1 whitespace-pre-line rounded-lg border border-violet-100 bg-white px-3 py-2 text-sm leading-6 text-slate-800">
+                  {suggestion.suggested}
+                </div>
+                <Text className="mt-3 block! text-xs! text-slate-400!">优化原因</Text>
+                <div className="mt-1 text-sm leading-6 text-slate-600">
+                  {suggestion.reason || '增强表达的专业性、清晰度和结果导向。'}
+                </div>
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button size="small" disabled={Boolean(acceptingSuggestionId)} onClick={() => ignoreSuggestion(suggestion.id)}>
+                    忽略
+                  </Button>
+                  <Button
+                    size="small"
+                    type="primary"
+                    loading={acceptingSuggestionId === suggestion.id}
+                    disabled={acceptingSuggestionId === 'all'}
+                    onClick={() => void acceptSuggestion(suggestion)}
+                  >
+                    采纳
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Drawer>
       <Modal
         title="新建简历"
         open={createModalOpen}

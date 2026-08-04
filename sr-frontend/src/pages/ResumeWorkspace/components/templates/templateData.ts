@@ -32,6 +32,7 @@ export function getTemplateSections(data: ResumeTemplateData) {
       title: '教育经历',
       entries: data.educations.map((item) => ({
         id: item.id,
+        module: 'education' as const,
         title: [item.school_name, item.field_of_study].filter(hasText).join('｜'),
         subtitle: [item.degree, item.location, item.gpa && `GPA ${item.gpa}`].filter(hasText).join(' · '),
         time: dateRange(item.start_date, item.end_date, item.is_current),
@@ -43,18 +44,19 @@ export function getTemplateSections(data: ResumeTemplateData) {
     {
       key: 'internship',
       title: '实习经历',
-      entries: data.internships.map(companyEntry),
+      entries: data.internships.map((item) => companyEntry(item, 'internship')),
     },
     {
       key: 'work',
       title: '工作经历',
-      entries: data.workExperiences.map(companyEntry),
+      entries: data.workExperiences.map((item) => companyEntry(item, 'work')),
     },
     {
       key: 'project',
       title: '项目经历',
       entries: data.projectExperiences.map((item) => ({
         id: item.id,
+        module: 'project' as const,
         title: [item.project_name, item.role_name].filter(hasText).join('｜'),
         subtitle: '',
         time: dateRange(item.start_date, item.end_date, item.is_current),
@@ -68,6 +70,7 @@ export function getTemplateSections(data: ResumeTemplateData) {
       title: '获奖记录',
       entries: data.awards.map((item) => ({
         id: item.id,
+        module: 'award' as const,
         title: item.award_name,
         subtitle: item.issuer,
         time: '',
@@ -80,9 +83,13 @@ export function getTemplateSections(data: ResumeTemplateData) {
   return sections.filter((section) => section.entries.length > 0)
 }
 
-function companyEntry(item: ResumeTemplateData['internships'][number]): ResumeEntryData {
+function companyEntry(
+  item: ResumeTemplateData['internships'][number],
+  module: 'internship' | 'work',
+): ResumeEntryData {
   return {
     id: item.id,
+    module,
     title: [item.company_name, item.position_title].filter(hasText).join('｜'),
     subtitle: [item.department, item.location].filter(hasText).join(' · '),
     time: dateRange(item.start_date, item.end_date, item.is_current),

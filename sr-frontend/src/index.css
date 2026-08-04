@@ -37,3 +37,11 @@ a {
 #root {
   min-height: 100vh;
 }
+@keyframes resume-scan {
+  0%, 100% { top: 8%; opacity: 0.35; }
+  50% { top: 92%; opacity: 1; }
+}
+
+.resume-scan-line {
+  animation: resume-scan 1.8s ease-in-out infinite;
+}

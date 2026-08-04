@@ -1,5 +1,5 @@
 import { ThunderboltOutlined } from '@ant-design/icons'
-import { Button, Checkbox, Form, Input, Select } from 'antd'
+import { Alert, Button, Checkbox, Form, Input, Select } from 'antd'
 import type { FormInstance } from 'antd'
 import type { Ref } from 'react'
 import type {
@@ -33,6 +33,9 @@ type EditorFormProps = {
   awardFormKey: string
   awardInitialValues: Partial<AwardFormValues>
   hasSelectedResume: boolean
+  polishing: boolean
+  polishGenerated: boolean
+  onPolish: () => void
 }
 
 export default function EditorForm({
@@ -54,7 +57,28 @@ export default function EditorForm({
   awardFormKey,
   awardInitialValues,
   hasSelectedResume,
+  polishing,
+  polishGenerated,
+  onPolish,
 }: EditorFormProps) {
+  const polishControls = (
+    <>
+      {polishGenerated && (
+        <Alert
+          className="mb-3"
+          type="success"
+          showIcon
+          message="AI润色内容已生成，请注意保存或取消"
+        />
+      )}
+      <Button block icon={<ThunderboltOutlined />} loading={polishing} onClick={onPolish}>
+        AI 帮我润色
+      </Button>
+      <div className="mt-2 text-center text-xs leading-5 text-slate-400">
+        请尽量丰富经历/记录内容，以便提升润色效果
+      </div>
+    </>
+  )
   if (moduleKey === 'profile') {
     return (
       <Form form={form} layout="vertical" requiredMark>
@@ -194,9 +218,7 @@ export default function EditorForm({
         <Form.Item label="经历描述" name="description">
           <TextArea rows={7} placeholder="课程、研究方向、校园活动或取得的成果" />
         </Form.Item>
-        <Button block icon={<ThunderboltOutlined />}>
-          AI 帮我润色
-        </Button>
+        {polishControls}
       </Form>
     )
   }
@@ -273,9 +295,7 @@ export default function EditorForm({
         <Form.Item label="描述" name="description">
           <TextArea rows={7} placeholder="描述工作职责、项目内容和产出" />
         </Form.Item>
-        <Button block icon={<ThunderboltOutlined />}>
-          AI 帮我润色
-        </Button>
+        {polishControls}
       </Form>
     )
   }
@@ -353,9 +373,7 @@ export default function EditorForm({
         <Form.Item label="描述" name="description">
           <TextArea rows={7} placeholder="描述项目背景、职责、方案和成果" />
         </Form.Item>
-        <Button block icon={<ThunderboltOutlined />}>
-          AI 帮我润色
-        </Button>
+        {polishControls}
       </Form>
     )
   }
@@ -393,9 +411,7 @@ export default function EditorForm({
         <Form.Item label="描述" name="description">
           <TextArea rows={7} placeholder="描述奖项背景、评选范围和取得的成果" />
         </Form.Item>
-        <Button block icon={<ThunderboltOutlined />}>
-          AI 帮我润色
-        </Button>
+        {polishControls}
       </Form>
     )
   }

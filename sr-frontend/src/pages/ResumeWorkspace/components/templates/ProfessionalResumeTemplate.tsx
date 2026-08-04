@@ -5,7 +5,7 @@ import PolishMark from './PolishMark'
 export default function ProfessionalResumeTemplate(data: ResumeTemplateData) {
   const { profile, resume } = data
   return (
-    <article className="min-h-240 w-180 bg-white px-13 py-11 font-sans text-slate-700 shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
+    <article className="resume-template bg-white px-13 py-11 font-sans text-slate-700">
       {profile && <header className="border-b border-slate-800 pb-5 text-center"><h1 className="m-0 text-[28px] font-semibold tracking-[0.18em] text-slate-900">{profile.full_name}</h1>{hasText(resume.target_position) && <p className="mt-2 mb-0 text-[12px] font-semibold tracking-widest text-slate-600">{resume.target_position}</p>}{hasText(profile.headline) && <p className="mt-2 mb-0 text-[10px] text-slate-500">{profile.headline}</p>}<p className="mt-3 mb-0 break-all text-[10px] text-slate-500">{getContacts(profile).join('  |  ')}</p></header>}
       {getTemplateSections(data).map((section) => <section className="mt-6" key={section.key}><h2 className="mb-3 border-b border-slate-300 pb-1.5 text-[13px] font-bold tracking-[0.15em] text-slate-900">{section.title}</h2><div className="space-y-3">{section.entries.map((entry) => <ProfessionalEntry key={entry.id} entry={entry} suggestionKeys={data.polishSuggestionKeys} />)}</div></section>)}
       {hasText(profile?.summary) && <section className="mt-6"><h2 className="mb-3 border-b border-slate-300 pb-1.5 text-[13px] font-bold tracking-[0.15em] text-slate-900">个人优势</h2><p className="m-0 whitespace-pre-line text-[10.5px] leading-[1.85]">{profile.summary}</p></section>}

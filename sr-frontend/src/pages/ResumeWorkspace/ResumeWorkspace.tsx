@@ -6,9 +6,13 @@ import {
   DeleteOutlined,
   EditOutlined,
   FileAddOutlined,
+  FileImageOutlined,
+  FilePdfOutlined,
   FileTextOutlined,
+  FileWordOutlined,
   LeftOutlined,
   MenuOutlined,
+  MinusOutlined,
   MoreOutlined,
   PlusOutlined,
   ProjectOutlined,
@@ -16,7 +20,6 @@ import {
   SaveOutlined,
   SettingOutlined,
   SolutionOutlined,
-  TeamOutlined,
   ThunderboltOutlined,
   TrophyOutlined,
   UserOutlined,
@@ -106,6 +109,7 @@ import {
 import EditorForm from './components/EditorForm'
 import ResumePaper from './components/ResumePaper'
 import { RESUME_TEMPLATES, type ResumeTemplateKey } from './components/ResumeTemplates'
+import { exportResume, type ResumeExportType } from './resumeExport'
 
 const { Text, Title } = Typography
 
@@ -130,7 +134,7 @@ const records: Record<Exclude<ResumeModuleKey, 'education' | 'internship' | 'wor
 const navItems = [
   { label: '首页', path: '/' },
   { label: 'AI 简历', path: '/resume' },
-  { label: '个人数字人', path: '/#agents' },
+  { label: '访问设置', path: '/access-settings' },
   { label: '平台助手', path: '/#agents' },
   { label: '使用流程', path: '/#workflow' },
 ]
@@ -151,6 +155,7 @@ function ResumeWorkspace() {
     createResume,
     renameResume,
     updateResumeTemplate,
+    updateResumeLayout,
     deleteResume,
     saveBasicProfile,
   } = useResumeStore()
@@ -160,6 +165,7 @@ function ResumeWorkspace() {
   const workFormRef = useRef<FormInstance<WorkFormValues>>(null)
   const projectFormRef = useRef<FormInstance<ProjectFormValues>>(null)
   const awardFormRef = useRef<FormInstance<AwardFormValues>>(null)
+  const resumePaperRef = useRef<HTMLDivElement>(null)
   const selectedResumeIdRef = useRef(selectedResumeId)
   const [educations, setEducations] = useState<Education[]>([])
   const [currentEducationIds, setCurrentEducationIds] = useState<string[]>([])
@@ -211,6 +217,7 @@ function ResumeWorkspace() {
   const [suggestionResumeId, setSuggestionResumeId] = useState('')
   const [suggestionDrawerOpen, setSuggestionDrawerOpen] = useState(false)
   const [acceptingSuggestionId, setAcceptingSuggestionId] = useState('')
+  const [exporting, setExporting] = useState<ResumeExportType | null>(null)
 
   const currentModule = modules.find((item) => item.key === activeModule) ?? modules[0]
   const currentPolishKey = `${activeModule}:${
@@ -241,6 +248,7 @@ function ResumeWorkspace() {
         target_company: null,
         template_key: selectedTemplateKey,
         language_code: 'zh-CN',
+        theme_config: {},
         status: 'draft',
         is_default: false,
         created_at: '',
@@ -511,10 +519,50 @@ function ResumeWorkspace() {
       !creatingAward)
 
   const gridTemplate = useMemo(() => {
-    const editorWidth = editorCollapsed ? '0px' : '360px'
-    const rightWidth = rightCollapsed ? '0px' : '286px'
-    return `196px ${editorWidth} minmax(620px, 1fr) ${rightWidth}`
+    const editorWidth = editorCollapsed ? '0px' : '340px'
+    const rightWidth = rightCollapsed ? '0px' : '260px'
+    return `184px ${editorWidth} minmax(620px, 1fr) ${rightWidth}`
   }, [editorCollapsed, rightCollapsed])
+
+  const handleExport = async (type: ResumeExportType) => {
+    if (!selectedResumeData || !resumePaperRef.current) {
+      message.warning('请先选择一份简历')
+      return
+    }
+    setExporting(type)
+    try {
+      await exportResume(resumePaperRef.current, selectedResumeData.title, type)
+      if (type !== 'pdf') message.success(type === 'word' ? 'Word 已导出' : '图片已导出')
+    } catch (error) {
+      message.error(getErrorMessage(error, '导出失败，请稍后重试'))
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const adjustLayout = (
+    key: 'letter_spacing' | 'module_spacing' | 'line_spacing',
+    delta: number,
+    min: number,
+    max: number,
+  ) => {
+    if (!selectedResumeData) return
+    const defaults = { letter_spacing: 0, module_spacing: 24, line_spacing: 1.8 }
+    const current = { ...defaults, ...selectedResumeData.theme_config?.layout }
+    const next = Math.min(max, Math.max(min, Number((current[key] + delta).toFixed(2))))
+    void updateResumeLayout(selectedResumeData.id, { ...current, [key]: next }).catch((error) => {
+      message.error(getErrorMessage(error, '排版设置保存失败'))
+    })
+  }
+
+  const exportMenu: MenuProps = {
+    items: [
+      { key: 'pdf', label: '导出为 PDF', icon: <FilePdfOutlined /> },
+      { key: 'word', label: '导出为 Word', icon: <FileWordOutlined /> },
+      { key: 'image', label: '导出为图片', icon: <FileImageOutlined /> },
+    ],
+    onClick: ({ key }) => void handleExport(key as ResumeExportType),
+  }
 
   const userMenu: MenuProps = {
     items: [
@@ -1591,7 +1639,7 @@ function ResumeWorkspace() {
             editorCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="flex h-full w-90 flex-col">
+          <div className="flex h-full w-85 flex-col">
             <div className="flex min-h-18.5 items-center justify-between border-b border-slate-100 px-5">
               <div>
                 <Text className="block! text-xs! text-slate-400!">正在编辑</Text>
@@ -2317,7 +2365,8 @@ function ResumeWorkspace() {
         </section>
 
         <section className="relative min-w-155 overflow-auto bg-[#eef0f5]">
-          <div className="sticky top-0 z-10 flex h-13.5 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur">
+          <div className="sticky top-0 z-10 bg-white/90 backdrop-blur">
+          <div className="flex h-13.5 items-center justify-between border-b border-slate-200 px-5">
             <div className="flex items-center gap-2">
               <FileTextOutlined className="text-indigo-500" />
               <Text strong>{selectedResumeData?.title ?? '未选择简历'}</Text>
@@ -2351,10 +2400,51 @@ function ResumeWorkspace() {
                 }))}
                 onChange={handleTemplateChange}
               />
-              <Button size="small" icon={<SettingOutlined />}>
-                页面设置
-              </Button>
+              <Dropdown menu={exportMenu} trigger={['hover']} placement="bottomRight">
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<CloudDownloadOutlined />}
+                  loading={Boolean(exporting)}
+                  disabled={!selectedResumeData}
+                >
+                  导出
+                </Button>
+              </Dropdown>
             </Space>
+          </div>
+          <div className="flex h-12 items-center justify-end gap-7 border-b border-slate-200 px-5">
+            {([
+              ['字间距', 'letter_spacing', 0.1, -0.5, 2, 'px'],
+              ['模块间距', 'module_spacing', 2, 12, 48, 'px'],
+              ['行间距', 'line_spacing', 0.1, 1.2, 2.4, ''],
+            ] as const).map(([label, key, step, min, max, unit]) => {
+              const value = selectedResumeData?.theme_config?.layout?.[key]
+                ?? (key === 'module_spacing' ? 24 : key === 'line_spacing' ? 1.8 : 0)
+              return (
+                <div className="flex items-center gap-2" key={key}>
+                  <Text className="text-xs! text-slate-500!">{label}</Text>
+                  <Button
+                    size="small"
+                    shape="circle"
+                    icon={<MinusOutlined />}
+                    disabled={!selectedResumeData || value <= min}
+                    aria-label={`减小${label}`}
+                    onClick={() => adjustLayout(key, -step, min, max)}
+                  />
+                  <Text className="w-11 text-center! text-xs! tabular-nums!">{value}{unit}</Text>
+                  <Button
+                    size="small"
+                    shape="circle"
+                    icon={<PlusOutlined />}
+                    disabled={!selectedResumeData || value >= max}
+                    aria-label={`增大${label}`}
+                    onClick={() => adjustLayout(key, step, min, max)}
+                  />
+                </div>
+              )
+            })}
+          </div>
           </div>
 
           {rightCollapsed && (
@@ -2377,11 +2467,12 @@ function ResumeWorkspace() {
                     AI 正在扫描并分析整份简历…
                   </span>
                 </div>
-                <div className="resume-scan-line absolute inset-x-8 h-0.5 bg-gradient-to-r from-transparent via-violet-500 to-transparent shadow-[0_0_16px_4px_rgba(139,92,246,0.45)]" />
+                <div className="resume-scan-line absolute inset-x-8 h-0.5 bg-linear-to-r from-transparent via-violet-500 to-transparent shadow-[0_0_16px_4px_rgba(139,92,246,0.45)]" />
               </div>
             )}
             {selectedResumeData ? (
               <ResumePaper
+                ref={resumePaperRef}
                 resume={selectedResumeData}
                 profile={profile}
                 educations={currentEducations}
@@ -2411,7 +2502,7 @@ function ResumeWorkspace() {
             rightCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="flex h-full w-71.5 flex-col">
+          <div className="flex h-full w-65 flex-col">
             <div className="flex min-h-18.5 items-center justify-between border-b border-slate-100 px-5">
               <div>
                 <Text className="block! text-xs! text-slate-400!">简历管理</Text>
@@ -2496,15 +2587,6 @@ function ResumeWorkspace() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div className="space-y-2 border-t border-slate-100 p-4">
-              <Button block type="primary" icon={<CloudDownloadOutlined />}>
-                导出当前简历
-              </Button>
-              <Button block icon={<TeamOutlined />}>
-                发布数字人
-              </Button>
             </div>
           </div>
         </aside>

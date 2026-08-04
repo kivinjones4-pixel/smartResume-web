@@ -5,7 +5,7 @@ import PolishMark from './PolishMark'
 export default function TraditionalResumeTemplate(data: ResumeTemplateData) {
   const { profile, resume } = data
   return (
-    <article className="min-h-240 w-180 bg-[#fffefa] px-15 py-12 font-serif text-[#222] shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
+    <article className="resume-template bg-[#fffefa] px-15 py-12 font-serif text-[#222]">
       {profile && <header className="border-y-4 border-double border-[#333] py-6 text-center"><h1 className="m-0 text-[29px] font-bold tracking-[0.3em]">{profile.full_name}</h1>{hasText(resume.target_position) && <p className="mt-2 mb-0 text-[13px] font-bold">应聘岗位：{resume.target_position}</p>}{hasText(profile.headline) && <p className="mt-2 mb-0 text-[10.5px]">{profile.headline}</p>}<p className="mt-3 mb-0 break-all text-[10px]">{getContacts(profile).join('　|　')}</p></header>}
       {getTemplateSections(data).map((section) => <section className="mt-6" key={section.key}><h2 className="mb-3 border-b-2 border-[#444] pb-1 text-[14px] font-bold tracking-[0.2em]">{section.title}</h2>{section.entries.map((entry) => <TraditionalEntry key={entry.id} entry={entry} suggestionKeys={data.polishSuggestionKeys} />)}</section>)}
       {hasText(profile?.summary) && <section className="mt-6"><h2 className="mb-3 border-b-2 border-[#444] pb-1 text-[14px] font-bold tracking-[0.2em]">个人优势</h2><p className="m-0 whitespace-pre-line text-[11px] leading-[2]">{profile.summary}</p></section>}

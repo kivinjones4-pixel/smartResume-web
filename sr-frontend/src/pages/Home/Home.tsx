@@ -34,7 +34,7 @@ const { Title, Paragraph, Text } = Typography
 const navItems = [
   { label: '首页', href: '#home' },
   { label: 'AI 简历', href: '/resume' },
-  { label: '个人数字人', href: '#agents' },
+  { label: '访问设置', href: '/access-settings' },
   { label: '平台助手', href: '#agents' },
   { label: '使用流程', href: '#workflow' },
 ]
@@ -136,7 +136,7 @@ function App() {
       }}
     >
       <div className="site-shell min-h-screen overflow-hidden">
-        <header className="topbar fixed inset-x-0 top-0 z-50 h-[72px] border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+        <header className="topbar fixed inset-x-0 top-0 z-50 h-18 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
           <div className="topbar-inner mx-auto flex h-full w-[min(1180px,calc(100%-48px))] items-center">
             <button className="brand" type="button" onClick={() => scrollTo('#home')}>
               <span className="brand-mark">
@@ -171,12 +171,12 @@ function App() {
 
         <main>
           <section
-            className="hero-section relative grid min-h-[820px] grid-cols-[0.88fr_1.12fr] items-center gap-[70px] px-[max(24px,calc((100vw-1180px)/2))] pt-[150px] pb-[100px] max-[1080px]:grid-cols-1 max-[1080px]:text-center max-sm:min-h-0 max-sm:px-4 max-sm:pt-[115px] max-sm:pb-20"
+            className="hero-section relative grid min-h-205 grid-cols-[0.88fr_1.12fr] items-center gap-17.5 px-[max(24px,calc((100vw-1180px)/2))] pt-37.5 pb-25 max-[1080px]:grid-cols-1 max-[1080px]:text-center max-sm:min-h-0 max-sm:px-4 max-sm:pt-28.75 max-sm:pb-20"
             id="home"
           >
             <div className="hero-glow hero-glow-one" />
             <div className="hero-glow hero-glow-two" />
-            <div className="hero-content relative z-[2]">
+            <div className="hero-content relative z-2">
               <Tag className="hero-tag" icon={<ThunderboltOutlined />}>
                 AI 驱动的下一代求职体验
               </Tag>
@@ -203,7 +203,7 @@ function App() {
                   了解产品 <ArrowRightOutlined />
                 </Button>
               </Space>
-              <div className="trust-row mt-[26px] flex flex-wrap gap-[22px] text-xs text-slate-500 max-[1080px]:justify-center">
+              <div className="trust-row mt-6.5 flex flex-wrap gap-5.5 text-xs text-slate-500 max-[1080px]:justify-center">
                 <span>
                   <CheckCircleFilled /> 免费开始
                 </span>
@@ -217,7 +217,7 @@ function App() {
             </div>
 
             <div
-              className="resume-preview relative z-[2] min-w-[650px] rounded-[18px] border border-slate-200 bg-white max-[1080px]:mx-auto max-[1080px]:w-full max-[1080px]:max-w-[700px] max-[1080px]:min-w-0"
+              className="resume-preview relative z-2 min-w-162.5 rounded-[18px] border border-slate-200 bg-white max-[1080px]:mx-auto max-[1080px]:w-full max-175:max-w-175 max-[1080px]:min-w-0"
               aria-label="AI 简历编辑器界面预览"
             >
               <div className="preview-toolbar">
@@ -287,7 +287,7 @@ function App() {
               <div className="floating-agent">
                 <Avatar icon={<RobotOutlined />} />
                 <div>
-                  <b>个人数字人已上线</b>
+                  <b>个人AI代理已上线</b>
                   <span>正在为你讲述项目亮点</span>
                 </div>
                 <span className="online-dot" />
@@ -296,10 +296,10 @@ function App() {
           </section>
 
           <section
-            className="section feature-section mx-auto w-[min(1180px,calc(100%-48px))] py-[105px] max-sm:w-[calc(100%-32px)] max-sm:py-[85px]"
+            className="section feature-section mx-auto w-[min(1180px,calc(100%-48px))] py-26.25 max-sm:w-[calc(100%-32px)] max-sm:py-21.25"
             id="features"
           >
-            <div className="section-heading mx-auto mb-[54px] max-w-[650px] text-center">
+            <div className="section-heading mx-auto mb-13.5 max-w-162.5 text-center">
               <span className="eyebrow">核心能力</span>
               <Title level={2}>不止于写简历，更懂如何展示你</Title>
               <Paragraph>
@@ -321,7 +321,7 @@ function App() {
           </section>
 
           <section
-            className="agent-section grid grid-cols-[1fr_0.9fr] items-center gap-[110px] px-[max(24px,calc((100vw-1050px)/2))] py-[100px] max-[860px]:grid-cols-1 max-[860px]:gap-[55px] max-sm:px-5 max-sm:py-20"
+            className="agent-section grid grid-cols-[1fr_0.9fr] items-center gap-27.5 px-[max(24px,calc((100vw-1050px)/2))] py-25 max-[860px]:grid-cols-1 max-[860px]:gap-13.75 max-sm:px-5 max-sm:py-20"
             id="agents"
           >
             <div className="agent-copy">
@@ -331,7 +331,7 @@ function App() {
                 个人数字人理解你的每一段履历，平台助手随时解答产品问题。
                 两个 Agent 各司其职，让展示和使用都更自然。
               </Paragraph>
-              <div className="agent-points mt-[30px] grid grid-cols-2 gap-[25px] max-sm:grid-cols-1">
+              <div className="agent-points mt-7.5 grid grid-cols-2 gap-6.25 max-sm:grid-cols-1">
                 <div>
                   <RobotOutlined />
                   <span>
@@ -352,7 +352,7 @@ function App() {
               <div className="chat-head">
                 <Avatar icon={<RobotOutlined />} />
                 <div>
-                  <b>佳卓的 AI 数字人</b>
+                  <b>佳卓的 AI 代理</b>
                   <span>
                     <i /> 在线
                   </span>
@@ -375,14 +375,14 @@ function App() {
           </section>
 
           <section
-            className="section workflow-section mx-auto w-[min(1180px,calc(100%-48px))] py-[105px] pb-[115px] max-sm:w-[calc(100%-32px)] max-sm:py-[85px]"
+            className="section workflow-section mx-auto w-[min(1180px,calc(100%-48px))] py-26.5 pb-28.75 max-sm:w-[calc(100%-32px)] max-sm:py-21.25"
             id="workflow"
           >
-            <div className="section-heading mx-auto mb-[54px] max-w-[650px] text-center">
+            <div className="section-heading mx-auto mb-13.5 max-w-162.5 text-center">
               <span className="eyebrow">简单三步</span>
               <Title level={2}>快速开启你的智能求职主页</Title>
             </div>
-            <div className="steps grid grid-cols-3 gap-[50px] max-sm:grid-cols-1 max-sm:gap-[42px]">
+            <div className="steps grid grid-cols-3 gap-12.5 max-sm:grid-cols-1 max-sm:gap-10.5">
               {[
                 ['01', '填写个人经历', '按模块沉淀教育、工作与项目素材'],
                 ['02', 'AI 优化内容', '润色表达并匹配目标岗位关键词'],
@@ -398,7 +398,7 @@ function App() {
             </div>
           </section>
 
-          <section className="cta-section mx-auto mb-20 flex w-[min(1180px,calc(100%-48px))] items-center justify-between rounded-[22px] px-[65px] py-[58px] max-[860px]:gap-[30px] max-[860px]:p-[45px] max-sm:mb-[50px] max-sm:w-[calc(100%-32px)] max-sm:flex-col max-sm:items-start max-sm:p-[25px]">
+          <section className="cta-section mx-auto mb-20 flex w-[min(1180px,calc(100%-48px))] items-center justify-between rounded-[22px] px-16.25 py-14.5 max-[860px]:gap-7.5 max-[860px]:p-11.25 max-sm:mb-12.5 max-sm:w-[calc(100%-32px)] max-sm:flex-col max-sm:items-start max-sm:p-6.25">
             <div>
               <Title level={2}>准备好，让机会看见更好的你了吗？</Title>
               <Paragraph>现在注册，免费创建你的第一份 AI 智能简历。</Paragraph>
@@ -409,7 +409,7 @@ function App() {
           </section>
         </main>
 
-        <footer className="mx-auto flex min-h-[110px] w-[min(1180px,calc(100%-48px))] items-center justify-between border-t border-slate-200 py-7 max-[860px]:gap-[25px] max-sm:w-[calc(100%-32px)] max-sm:flex-col max-sm:items-start">
+        <footer className="mx-auto flex min-h-27.5 w-[min(1180px,calc(100%-48px))] items-center justify-between border-t border-slate-200 py-7 max-[860px]:gap-6.25 max-sm:w-[calc(100%-32px)] max-sm:flex-col max-sm:items-start">
           <div className="footer-brand flex items-center gap-2.5">
             <span className="brand-mark">
               <ThunderboltOutlined />

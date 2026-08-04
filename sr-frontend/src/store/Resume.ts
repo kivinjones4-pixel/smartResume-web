@@ -3,6 +3,7 @@ import {
   createElement,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react'
@@ -10,6 +11,7 @@ import * as resumeService from '../services/Resume'
 import type {
   BasicProfileValues,
   Resume,
+  ResumeLayoutConfig,
   ResumeStoreValue,
   UserProfile,
 } from '../types/Resume'
@@ -21,6 +23,18 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [selectedResumeId, setSelectedResumeId] = useState('')
   const [loading, setLoading] = useState(true)
+  const [layoutSaveTimers] = useState(() => new Map<string, {
+    timer: ReturnType<typeof setTimeout>
+    resolve: () => void
+  }>())
+
+  useEffect(() => () => {
+    layoutSaveTimers.forEach(({ timer, resolve }) => {
+      clearTimeout(timer)
+      resolve()
+    })
+    layoutSaveTimers.clear()
+  }, [layoutSaveTimers])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,6 +74,38 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     )
   }, [])
 
+  const updateResumeLayout = useCallback(async (id: string, layout: ResumeLayoutConfig) => {
+    setResumes((current) => current.map((item) =>
+      item.id === id ? { ...item, theme_config: { ...item.theme_config, layout } } : item,
+    ))
+
+    const pending = layoutSaveTimers.get(id)
+    if (pending) {
+      clearTimeout(pending.timer)
+      pending.resolve()
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        layoutSaveTimers.delete(id)
+        void resumeService.updateResumeLayout(id, layout).then((updatedResume) => {
+          setResumes((current) => current.map((item) => {
+            if (item.id !== updatedResume.id) return item
+            return {
+              ...updatedResume,
+              theme_config: {
+                ...updatedResume.theme_config,
+                layout: item.theme_config.layout ?? updatedResume.theme_config.layout,
+              },
+            }
+          }))
+          resolve()
+        }).catch(reject)
+      }, 400)
+      layoutSaveTimers.set(id, { timer, resolve })
+    })
+  }, [layoutSaveTimers])
+
   const deleteResume = useCallback(async (id: string) => {
     await resumeService.deleteResume(id)
     const refreshed = await resumeService.listResumes()
@@ -96,6 +142,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
       createResume,
       renameResume,
       updateResumeTemplate,
+      updateResumeLayout,
       deleteResume,
       saveBasicProfile,
     }
@@ -108,6 +155,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     resumes,
     renameResume,
     updateResumeTemplate,
+    updateResumeLayout,
     saveBasicProfile,
     selectedResumeId,
   ])

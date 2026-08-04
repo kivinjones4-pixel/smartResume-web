@@ -1,6 +1,41 @@
 package model
 
-import "time"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type JSONConfig json.RawMessage
+
+func (value JSONConfig) Value() (driver.Value, error) {
+	if len(value) == 0 {
+		return "{}", nil
+	}
+	return string(value), nil
+}
+
+func (value *JSONConfig) Scan(source any) error {
+	switch data := source.(type) {
+	case []byte:
+		*value = append((*value)[:0], data...)
+	case string:
+		*value = append((*value)[:0], data...)
+	case nil:
+		*value = JSONConfig("{}")
+	default:
+		return fmt.Errorf("unsupported JSON config type %T", source)
+	}
+	return nil
+}
+
+func (value JSONConfig) MarshalJSON() ([]byte, error) {
+	if len(value) == 0 {
+		return []byte("{}"), nil
+	}
+	return value, nil
+}
 
 type User struct {
 	ID              string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
@@ -57,17 +92,18 @@ type UserProfile struct {
 }
 
 type Resume struct {
-	ID             string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID         string    `gorm:"column:user_id;type:uuid;not null" json:"-"`
-	Title          string    `gorm:"column:title;size:150;not null" json:"title"`
-	TargetPosition *string   `gorm:"column:target_position;size:150" json:"target_position"`
-	TargetCompany  *string   `gorm:"column:target_company;size:200" json:"target_company"`
-	TemplateKey    string    `gorm:"column:template_key;size:80;not null" json:"template_key"`
-	LanguageCode   string    `gorm:"column:language_code;size:10;not null" json:"language_code"`
-	Status         string    `gorm:"column:status;size:20;not null" json:"status"`
-	IsDefault      bool      `gorm:"column:is_default;not null" json:"is_default"`
-	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt      time.Time `gorm:"column:updated_at" json:"updated_at"`
+	ID             string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID         string     `gorm:"column:user_id;type:uuid;not null" json:"-"`
+	Title          string     `gorm:"column:title;size:150;not null" json:"title"`
+	TargetPosition *string    `gorm:"column:target_position;size:150" json:"target_position"`
+	TargetCompany  *string    `gorm:"column:target_company;size:200" json:"target_company"`
+	TemplateKey    string     `gorm:"column:template_key;size:80;not null" json:"template_key"`
+	LanguageCode   string     `gorm:"column:language_code;size:10;not null" json:"language_code"`
+	ThemeConfig    JSONConfig `gorm:"column:theme_config;type:jsonb;not null" json:"theme_config"`
+	Status         string     `gorm:"column:status;size:20;not null" json:"status"`
+	IsDefault      bool       `gorm:"column:is_default;not null" json:"is_default"`
+	CreatedAt      time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at" json:"updated_at"`
 }
 
 type Education struct {

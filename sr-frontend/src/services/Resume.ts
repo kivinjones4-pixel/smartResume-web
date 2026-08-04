@@ -5,6 +5,7 @@ import type {
   Internship,
   ProjectExperience,
   Resume,
+  ResumeLayoutConfig,
   SaveEducationValues,
   SaveAwardValues,
   SaveInternshipValues,
@@ -40,6 +41,14 @@ export async function updateResumeTemplate(id: string, templateKey: string) {
   const response = await http.patch<{ resume: Resume }>(
     `/api/v1/resumes/${encodeURIComponent(id)}`,
     { template_key: templateKey },
+  )
+  return response.resume
+}
+
+export async function updateResumeLayout(id: string, layout: ResumeLayoutConfig) {
+  const response = await http.patch<{ resume: Resume }>(
+    `/api/v1/resumes/${encodeURIComponent(id)}`,
+    { layout },
   )
   return response.resume
 }

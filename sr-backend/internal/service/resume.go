@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -30,6 +31,12 @@ type BasicProfileInput struct {
 	LinkedinURL     *string
 	Summary         *string
 	YearsExperience *float64
+}
+
+type ResumeLayoutConfig struct {
+	LetterSpacing float64 `json:"letter_spacing" binding:"min=-0.5,max=2"`
+	ModuleSpacing float64 `json:"module_spacing" binding:"min=12,max=48"`
+	LineSpacing   float64 `json:"line_spacing" binding:"min=1.2,max=2.4"`
 }
 
 func NewResumeService(db *gorm.DB) *ResumeService {
@@ -64,6 +71,7 @@ func (s *ResumeService) Create(userID, title, templateKey string) (*model.Resume
 			Title:        title,
 			TemplateKey:  templateKey,
 			LanguageCode: "zh-CN",
+			ThemeConfig:  model.JSONConfig("{}"),
 			Status:       "draft",
 			IsDefault:    count == 0,
 		}
@@ -95,6 +103,36 @@ func (s *ResumeService) UpdateTemplate(userID, resumeID, templateKey string) (*m
 	result := s.db.Model(&model.Resume{}).
 		Where("id = ? AND user_id = ?", resumeID, userID).
 		Update("template_key", strings.TrimSpace(templateKey))
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, ErrResumeNotFound
+	}
+	if err := s.db.Where("id = ? AND user_id = ?", resumeID, userID).First(&resume).Error; err != nil {
+		return nil, err
+	}
+	return &resume, nil
+}
+
+func (s *ResumeService) UpdateLayout(userID, resumeID string, layout ResumeLayoutConfig) (*model.Resume, error) {
+	var resume model.Resume
+	if err := s.db.Where("id = ? AND user_id = ?", resumeID, userID).First(&resume).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrResumeNotFound
+		}
+		return nil, err
+	}
+	config := map[string]any{}
+	if len(resume.ThemeConfig) > 0 {
+		_ = json.Unmarshal([]byte(resume.ThemeConfig), &config)
+	}
+	config["layout"] = layout
+	encoded, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	result := s.db.Model(&model.Resume{}).Where("id = ? AND user_id = ?", resumeID, userID).Update("theme_config", model.JSONConfig(encoded))
 	if result.Error != nil {
 		return nil, result.Error
 	}

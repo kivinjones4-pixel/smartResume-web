@@ -6,7 +6,7 @@ export default function ClassicResumeTemplate(data: ResumeTemplateData) {
   const { profile, resume } = data
   const contacts = getContacts(profile)
   return (
-    <article className="min-h-240 w-180 bg-white px-14 py-12 text-[#343a4a] shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
+    <article className="resume-template bg-white px-14 py-12 text-[#343a4a]">
       {profile && (
         <header className="flex items-start justify-between border-b-2 border-indigo-500 pb-7">
           <div className="min-w-0 pr-5">

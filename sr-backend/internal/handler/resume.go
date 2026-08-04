@@ -22,8 +22,9 @@ type createResumeRequest struct {
 }
 
 type renameResumeRequest struct {
-	Title       *string `json:"title" binding:"omitempty,max=150"`
-	TemplateKey *string `json:"template_key" binding:"omitempty,oneof=default professional creative traditional"`
+	Title       *string                     `json:"title" binding:"omitempty,max=150"`
+	TemplateKey *string                     `json:"template_key" binding:"omitempty,oneof=default professional creative traditional"`
+	Layout      *service.ResumeLayoutConfig `json:"layout"`
 }
 
 type saveBasicProfileRequest struct {
@@ -72,7 +73,7 @@ func (h *ResumeHandler) Create(c *gin.Context) {
 
 func (h *ResumeHandler) Rename(c *gin.Context) {
 	var req renameResumeRequest
-	if err := c.ShouldBindJSON(&req); err != nil || (req.Title == nil && req.TemplateKey == nil) {
+	if err := c.ShouldBindJSON(&req); err != nil || (req.Title == nil && req.TemplateKey == nil && req.Layout == nil) {
 		response.Error(c, http.StatusBadRequest, "INVALID_RESUME_INPUT", "请提交有效的简历标题或模板")
 		return
 	}
@@ -84,8 +85,10 @@ func (h *ResumeHandler) Rename(c *gin.Context) {
 			return
 		}
 		resume, err = h.service.Rename(c.GetString(middleware.UserIDKey), c.Param("id"), *req.Title)
-	} else {
+	} else if req.TemplateKey != nil {
 		resume, err = h.service.UpdateTemplate(c.GetString(middleware.UserIDKey), c.Param("id"), *req.TemplateKey)
+	} else {
+		resume, err = h.service.UpdateLayout(c.GetString(middleware.UserIDKey), c.Param("id"), *req.Layout)
 	}
 	if errors.Is(err, service.ErrResumeNotFound) {
 		response.Error(c, http.StatusNotFound, "RESUME_NOT_FOUND", err.Error())

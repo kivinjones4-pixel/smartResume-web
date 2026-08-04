@@ -6,7 +6,7 @@ export default function CreativeResumeTemplate(data: ResumeTemplateData) {
   const { profile, resume } = data
   const sections = getTemplateSections(data)
   return (
-    <article className="min-h-240 w-180 overflow-hidden bg-[#fffdf9] text-[#2f2942] shadow-[0_8px_30px_rgba(49,54,79,0.12)]">
+    <article className="resume-template overflow-hidden bg-[#fffdf9] text-[#2f2942]">
       <header className="relative overflow-hidden bg-[#382f63] px-13 py-10 text-white"><span className="absolute -top-12 -right-8 h-40 w-40 rounded-full bg-[#ff7a66] opacity-90" /><span className="absolute right-25 -bottom-20 h-32 w-32 rotate-45 rounded-3xl bg-[#f5c451] opacity-80" />{profile && <div className="relative z-10 max-w-115"><p className="m-0 text-[10px] font-semibold tracking-[0.3em] text-[#f5c451]">CURRICULUM VITAE</p><h1 className="mt-3 mb-0 text-[34px] font-black tracking-wide">{profile.full_name}</h1>{hasText(resume.target_position) && <p className="mt-2 mb-0 text-[14px] text-purple-100">{resume.target_position}</p>}{hasText(profile.headline) && <p className="mt-2 mb-0 text-[10px] text-purple-200">{profile.headline}</p>}</div>}</header>
       <div className="grid grid-cols-[155px_1fr]">
         <aside className="bg-[#eee9ff] px-6 py-8"><h2 className="mb-3 text-[11px] font-black tracking-widest text-[#5a45a2]">联系方式</h2><div className="space-y-2 break-all text-[9px] leading-[1.6] text-[#625978]">{getContacts(profile).map((contact) => <p className="m-0" key={contact}>{contact}</p>)}</div></aside>

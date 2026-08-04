@@ -5,10 +5,20 @@ export type Resume = {
   target_company: string | null
   template_key: string
   language_code: string
+  theme_config: {
+    layout?: ResumeLayoutConfig
+    [key: string]: unknown
+  }
   status: string
   is_default: boolean
   created_at: string
   updated_at: string
+}
+
+export type ResumeLayoutConfig = {
+  letter_spacing: number
+  module_spacing: number
+  line_spacing: number
 }
 
 export type UserProfile = {
@@ -165,6 +175,7 @@ export type ResumeStoreValue = {
   createResume: (title?: string, templateKey?: string) => Promise<Resume>
   renameResume: (id: string, title: string) => Promise<void>
   updateResumeTemplate: (id: string, templateKey: string) => Promise<void>
+  updateResumeLayout: (id: string, layout: ResumeLayoutConfig) => Promise<void>
   deleteResume: (id: string) => Promise<void>
   saveBasicProfile: (values: BasicProfileValues) => Promise<void>
 }

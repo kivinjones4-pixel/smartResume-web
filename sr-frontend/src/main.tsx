@@ -10,6 +10,7 @@ import { ResumeProvider } from './store/Resume.ts'
 import KKAssistant from './components/KKAssistant/KKAssistant.tsx'
 
 export const ResumeWorkspace = lazy(() => import('./pages/ResumeWorkspace/ResumeWorkspace.tsx'))
+const AccessSettings = lazy(() => import('./pages/AccessSettings/AccessSettings.tsx'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')!).render(
                 </ProtectedRoute>
               }
             />
+            <Route path="/access-settings" element={<ProtectedRoute><AccessSettings /></ProtectedRoute>} />
           </Routes>
           <KKAssistant />
         </Suspense>

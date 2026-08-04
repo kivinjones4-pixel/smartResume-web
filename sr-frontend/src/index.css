@@ -45,3 +45,69 @@ a {
 .resume-scan-line {
   animation: resume-scan 1.8s ease-in-out infinite;
 }
+
+/* A4 canvas and future typography controls share one stable configuration surface. */
+.resume-paper {
+  --resume-page-width: 794px;
+  --resume-page-height: 1123px;
+  --resume-letter-spacing: normal;
+  --resume-line-height-scale: 1;
+  --resume-module-spacing-scale: 1;
+  position: relative;
+  width: var(--resume-page-width);
+  min-width: var(--resume-page-width);
+  min-height: var(--resume-page-height);
+  overflow: hidden;
+  letter-spacing: var(--resume-letter-spacing);
+  background-color: #fff;
+  box-shadow: 0 8px 30px rgba(49, 54, 79, 0.12);
+}
+
+.resume-paper::after {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--resume-page-height) - 1px),
+    #cbd5e1 calc(var(--resume-page-height) - 1px),
+    #cbd5e1 var(--resume-page-height)
+  );
+  content: '';
+}
+
+.resume-template {
+  width: var(--resume-page-width);
+  min-height: var(--resume-page-height);
+  background-color: transparent !important;
+}
+
+.resume-template,
+.resume-template * {
+  letter-spacing: var(--resume-letter-spacing) !important;
+}
+
+.resume-template p,
+.resume-template li {
+  line-height: var(--resume-line-spacing) !important;
+}
+
+.resume-template section {
+  margin-top: var(--resume-module-spacing) !important;
+}
+
+.agent-settings-form {
+  padding: 20px;
+}
+
+.agent-settings-form .ant-form-item {
+  margin-inline: 0;
+}
+
+@media print {
+  @page { size: A4; margin: 0; }
+  .resume-paper { box-shadow: none; }
+  .resume-paper::after { display: none; }
+}

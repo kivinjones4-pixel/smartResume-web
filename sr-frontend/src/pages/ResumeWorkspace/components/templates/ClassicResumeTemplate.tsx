@@ -1,5 +1,6 @@
 import type { ResumeEntryData, ResumeTemplateData } from './types'
 import { getContacts, getTemplateSections, hasText } from './templateData'
+import PolishMark from './PolishMark'
 
 export default function ClassicResumeTemplate(data: ResumeTemplateData) {
   const { profile, resume } = data
@@ -20,7 +21,7 @@ export default function ClassicResumeTemplate(data: ResumeTemplateData) {
       {getTemplateSections(data).map((section) => (
         <section className="mt-7" key={section.key}>
           <h2 className="mb-3 flex items-center gap-2 text-[14px] font-bold text-slate-800"><span className="h-4 w-1 rounded bg-indigo-500" />{section.title}</h2>
-          <div className="text-[11px] leading-[1.9] text-slate-600">{section.entries.map((entry) => <ClassicEntry key={entry.id} entry={entry} />)}</div>
+          <div className="text-[11px] leading-[1.9] text-slate-600">{section.entries.map((entry) => <ClassicEntry key={entry.id} entry={entry} suggestionKeys={data.polishSuggestionKeys} />)}</div>
         </section>
       ))}
       {hasText(profile?.summary) && <section className="mt-7"><h2 className="mb-3 flex items-center gap-2 text-[14px] font-bold text-slate-800"><span className="h-4 w-1 rounded bg-indigo-500" />个人优势</h2><p className="m-0 whitespace-pre-line text-[11px] leading-[1.9] text-slate-600">{profile.summary}</p></section>}
@@ -32,10 +33,14 @@ function Avatar({ profile }: { profile: NonNullable<ResumeTemplateData['profile'
   return profile.avatar_url ? <img className="h-18 w-18 rounded-full object-cover" src={profile.avatar_url} alt="头像" /> : <div className="grid h-18 w-18 shrink-0 place-items-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-500">{profile.full_name.trim().slice(-2) || '简历'}</div>
 }
 
-function ClassicEntry({ entry }: { entry: ResumeEntryData }) {
-  return <div className="mb-4 last:mb-0"><div className="flex items-start justify-between gap-4"><b className="text-[13px] text-slate-700">{entry.title}</b>{entry.time && <span className="shrink-0 text-[11px] text-slate-400">{entry.time}</span>}</div>{entry.subtitle && <p className="mt-0.5 mb-0 text-slate-500">{entry.subtitle}</p>}{entry.description && <p className="mt-1.5 mb-0 whitespace-pre-line">{entry.description}</p>}<Details entry={entry} /></div>
+function ClassicEntry({ entry, suggestionKeys }: { entry: ResumeEntryData; suggestionKeys?: string[] }) {
+  return <div className="mb-4 last:mb-0"><div className="flex items-start justify-between gap-4"><b className="text-[13px] text-slate-700">{entry.title}</b>{entry.time && <span className="shrink-0 text-[11px] text-slate-400">{entry.time}</span>}</div>{entry.subtitle && <p className="mt-0.5 mb-0 text-slate-500">{entry.subtitle}</p>}{entry.description && <p className="mt-1.5 mb-0 whitespace-pre-line">{entry.description}<PolishMark visible={hasSuggestion(suggestionKeys, entry, 'description')} /></p>}<Details entry={entry} suggestionKeys={suggestionKeys} /></div>
 }
 
-function Details({ entry }: { entry: ResumeEntryData }) {
-  return <>{entry.achievements.filter(hasText).length > 0 && <ul className="mt-1.5 mb-0 list-disc space-y-0.5 pl-4">{entry.achievements.filter(hasText).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>}{entry.links.length > 0 && <p className="mt-1 break-all text-indigo-500">{entry.links.join(' · ')}</p>}</>
+function Details({ entry, suggestionKeys }: { entry: ResumeEntryData; suggestionKeys?: string[] }) {
+  return <>{entry.achievements.filter(hasText).length > 0 && <div className="flex items-start"><ul className="mt-1.5 mb-0 flex-1 list-disc space-y-0.5 pl-4">{entry.achievements.filter(hasText).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul><PolishMark visible={hasSuggestion(suggestionKeys, entry, 'achievements')} /></div>}{entry.links.length > 0 && <p className="mt-1 break-all text-indigo-500">{entry.links.join(' · ')}</p>}</>
+}
+
+function hasSuggestion(keys: string[] | undefined, entry: ResumeEntryData, field: string) {
+  return keys?.includes(`${entry.module}:${entry.id}:${field}`) ?? false
 }

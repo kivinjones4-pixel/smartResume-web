@@ -25,10 +25,11 @@ type AIProviderConfig struct {
 }
 
 type AIConfig struct {
-	Chat                AIProviderConfig
-	Embedding           AIProviderConfig
-	EmbeddingDimensions int
-	TimeoutSeconds      int
+	Chat                 AIProviderConfig
+	Embedding            AIProviderConfig
+	EmbeddingDimensions  int
+	TimeoutSeconds       int
+	PolishTimeoutSeconds int
 }
 
 type AssistantConfig struct {
@@ -93,8 +94,9 @@ func Load() Config {
 				BaseURL:  strings.TrimSpace(os.Getenv("AI_EMBEDDING_BASE_URL")),
 				Model:    strings.TrimSpace(os.Getenv("AI_EMBEDDING_MODEL")),
 			},
-			EmbeddingDimensions: envInt("AI_EMBEDDING_DIMENSIONS", 1536),
-			TimeoutSeconds:      envInt("AI_TIMEOUT_SECONDS", 60),
+			EmbeddingDimensions:  envInt("AI_EMBEDDING_DIMENSIONS", 1536),
+			TimeoutSeconds:       envInt("AI_TIMEOUT_SECONDS", 60),
+			PolishTimeoutSeconds: envInt("AI_POLISH_TIMEOUT_SECONDS", 180),
 		},
 		Assistant: AssistantConfig{
 			Name:                   envOrDefault("ASSISTANT_NAME", "KK"),
@@ -129,6 +131,9 @@ func (c AIConfig) ValidateEmbedding() error {
 	}
 	if c.TimeoutSeconds <= 0 {
 		return fmt.Errorf("AI_TIMEOUT_SECONDS must be greater than zero")
+	}
+	if c.PolishTimeoutSeconds <= 0 {
+		return fmt.Errorf("AI_POLISH_TIMEOUT_SECONDS must be greater than zero")
 	}
 	return nil
 }

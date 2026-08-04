@@ -66,6 +66,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("create chat client: %v", err)
 	}
+	polishChatClient, err := chat.NewOpenAICompatibleClient(cfg.AI.Chat, cfg.AI.PolishTimeoutSeconds)
+	if err != nil {
+		log.Fatalf("create polish chat client: %v", err)
+	}
 	assistantService, err := agent.NewService(
 		cfg, chatClient, embeddingClient, knowledge.NewRepository(postgresDB.SQL),
 	)
@@ -73,6 +77,7 @@ func main() {
 		log.Fatalf("create assistant service: %v", err)
 	}
 	assistantHandler := handler.NewAssistantHandler(assistantService)
+	polishHandler := handler.NewPolishHandler(agent.NewPolishService(polishChatClient))
 
 	r.GET("/ping", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
@@ -138,6 +143,8 @@ func main() {
 		apiRoutes.DELETE("/resumes/:id/awards/:awardId", awardHandler.Detach)
 		apiRoutes.POST("/assistant/chat", assistantHandler.Chat)
 		apiRoutes.POST("/assistant/chat/stream", assistantHandler.Stream)
+		apiRoutes.POST("/ai-polish/record", polishHandler.Record)
+		apiRoutes.POST("/ai-polish/resume", polishHandler.Resume)
 	}
 
 	log.Printf(

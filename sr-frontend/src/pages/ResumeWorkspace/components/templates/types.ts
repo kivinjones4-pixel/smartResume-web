@@ -16,10 +16,12 @@ export type ResumeTemplateData = {
   workExperiences: WorkExperience[]
   projectExperiences: ProjectExperience[]
   awards: Award[]
+  polishSuggestionKeys?: string[]
 }
 
 export type ResumeEntryData = {
   id: string
+  module: Exclude<import('../../../../types/ResumeWorkspace').ResumeModuleKey, 'profile'>
   title: string
   subtitle: string
   time: string

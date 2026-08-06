@@ -100,6 +100,7 @@ type Resume struct {
 	TemplateKey    string     `gorm:"column:template_key;size:80;not null" json:"template_key"`
 	LanguageCode   string     `gorm:"column:language_code;size:10;not null" json:"language_code"`
 	ThemeConfig    JSONConfig `gorm:"column:theme_config;type:jsonb;not null" json:"theme_config"`
+	PublicSlug     *string    `gorm:"column:public_slug;size:100" json:"public_slug"`
 	Status         string     `gorm:"column:status;size:20;not null" json:"status"`
 	IsDefault      bool       `gorm:"column:is_default;not null" json:"is_default"`
 	CreatedAt      time.Time  `gorm:"column:created_at" json:"created_at"`

@@ -23,6 +23,10 @@ type OpenAICompatibleClient struct {
 	dimensions int
 }
 
+// embeddingBatchSize is compatible with providers that cap one request at 10 inputs.
+// Callers can still submit any number of inputs; Embed preserves their original order.
+const embeddingBatchSize = 10
+
 type embeddingRequest struct {
 	Model      string   `json:"model"`
 	Input      []string `json:"input"`
@@ -40,6 +44,7 @@ type embeddingResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// NewOpenAICompatibleClient 创建OpenAI兼容客户端，校验参数并初始化。
 func NewOpenAICompatibleClient(cfg config.AIProviderConfig, dimensions, timeoutSeconds int) (*OpenAICompatibleClient, error) {
 	endpoint, err := embeddingEndpoint(cfg.BaseURL)
 	if err != nil {
@@ -57,6 +62,7 @@ func NewOpenAICompatibleClient(cfg config.AIProviderConfig, dimensions, timeoutS
 	}, nil
 }
 
+// Embed 批量获取文本向量，自动分批处理，空输入报错。
 func (c *OpenAICompatibleClient) Embed(ctx context.Context, inputs []string) ([][]float32, error) {
 	if len(inputs) == 0 {
 		return nil, fmt.Errorf("embedding inputs cannot be empty")
@@ -66,6 +72,21 @@ func (c *OpenAICompatibleClient) Embed(ctx context.Context, inputs []string) ([]
 			return nil, fmt.Errorf("embedding input cannot be blank")
 		}
 	}
+
+	vectors := make([][]float32, 0, len(inputs))
+	for start := 0; start < len(inputs); start += embeddingBatchSize {
+		end := min(start+embeddingBatchSize, len(inputs))
+		batchVectors, err := c.embedBatch(ctx, inputs[start:end])
+		if err != nil {
+			return nil, fmt.Errorf("embed input batch %d-%d: %w", start+1, end, err)
+		}
+		vectors = append(vectors, batchVectors...)
+	}
+	return vectors, nil
+}
+
+// embedBatch 批量获取文本嵌入向量。发送请求至OpenAI兼容API，校验响应状态及向量维度，并按索引排序返回。出错时返回错误。
+func (c *OpenAICompatibleClient) embedBatch(ctx context.Context, inputs []string) ([][]float32, error) {
 
 	payload, err := json.Marshal(embeddingRequest{
 		Model:      c.model,
@@ -120,6 +141,7 @@ func (c *OpenAICompatibleClient) Embed(ctx context.Context, inputs []string) ([]
 	return vectors, nil
 }
 
+// embeddingEndpoint 规范化嵌入接口地址，确保以/embeddings结尾。
 func embeddingEndpoint(baseURL string) (string, error) {
 	raw := strings.TrimSpace(baseURL)
 	if raw == "" {

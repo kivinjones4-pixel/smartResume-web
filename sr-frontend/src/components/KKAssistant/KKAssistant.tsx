@@ -9,6 +9,7 @@ import {
 import { Avatar, Button, Input, Spin, Tag, Tooltip } from 'antd'
 import { streamAssistantMessage, type AssistantSource } from '../../services/Assistant'
 import { useAuth } from '../../store/Auth'
+import { useLocation } from 'react-router-dom'
 import './KKAssistant.css'
 
 type ChatMessage = {
@@ -30,6 +31,7 @@ const createID = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
 export default function KKAssistant() {
   const { user } = useAuth()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -112,7 +114,7 @@ export default function KKAssistant() {
     }
   }
 
-  if (!user) return null
+  if (!user || location.pathname.startsWith('/resume-visitor/')) return null
 
   return (
     <>

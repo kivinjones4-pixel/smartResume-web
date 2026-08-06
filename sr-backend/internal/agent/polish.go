@@ -50,10 +50,12 @@ type ResumePolishResult struct {
 	Suggestions []PolishSuggestion `json:"suggestions"`
 }
 
+// NewPolishService 创建PolishService实例。
 func NewPolishService(chatClient chat.Client) *PolishService {
 	return &PolishService{chatClient: chatClient}
 }
 
+// Polish 润色简历指定模块内容。验证字段、调用AI润色并解析返回结果。
 func (s *PolishService) Polish(ctx context.Context, request PolishRequest) (*PolishResult, error) {
 	fields, ok := polishFields[request.Module]
 	if !ok {
@@ -104,6 +106,7 @@ func (s *PolishService) Polish(ctx context.Context, request PolishRequest) (*Pol
 	return &PolishResult{Content: result}, nil
 }
 
+// PolishResume 根据求职方向生成简历润色建议。过滤无效项，调用大模型获取改写建议，并校验去重。
 func (s *PolishService) PolishResume(ctx context.Context, request ResumePolishRequest) (*ResumePolishResult, error) {
 	allowedItems := make([]ResumePolishItem, 0, len(request.Items))
 	originals := make(map[string]string)
@@ -172,6 +175,7 @@ var polishFields = map[string][]string{
 	"award":      {"description"},
 }
 
+// stripJSONFence 去除JSON的Markdown代码块围栏。
 func stripJSONFence(value string) string {
 	value = strings.TrimSpace(value)
 	if !strings.HasPrefix(value, "```") {
@@ -202,6 +206,7 @@ func decodeModelJSON(value string, target any) error {
 	return nil
 }
 
+// 生成模块、记录ID和字段的组合键。
 func suggestionKey(module, recordID, field string) string {
 	return module + ":" + recordID + ":" + field
 }

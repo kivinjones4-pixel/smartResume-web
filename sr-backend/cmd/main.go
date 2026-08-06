@@ -79,6 +79,7 @@ func main() {
 	}
 	assistantHandler := handler.NewAssistantHandler(assistantService)
 	polishHandler := handler.NewPolishHandler(agent.NewPolishService(polishChatClient))
+	publicResumeHandler := handler.NewPublicResumeHandler(postgresDB.DB, agent.NewResumeAgentService(postgresDB.DB, chatClient), cfg.Auth)
 
 	r.GET("/ping", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
@@ -149,6 +150,12 @@ func main() {
 		apiRoutes.POST("/assistant/chat/stream", assistantHandler.Stream)
 		apiRoutes.POST("/ai-polish/record", polishHandler.Record)
 		apiRoutes.POST("/ai-polish/resume", polishHandler.Resume)
+	}
+	publicRoutes := r.Group("/api/v1/public", middleware.OptionalAuth(authService))
+	{
+		publicRoutes.GET("/resumes/:id", publicResumeHandler.Get)
+		publicRoutes.POST("/resumes/:id/access", publicResumeHandler.Access)
+		publicRoutes.POST("/resumes/:id/chat/stream", publicResumeHandler.Stream)
 	}
 
 	log.Printf(

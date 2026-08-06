@@ -31,13 +31,25 @@ func RequireAuth(auth *service.AuthService) gin.HandlerFunc {
 	}
 }
 
+func OptionalAuth(auth *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		header := c.GetHeader("Authorization")
+		if strings.HasPrefix(header, "Bearer ") {
+			if claims, err := auth.ParseAccessToken(strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))); err == nil {
+				c.Set(UserIDKey, claims.Subject)
+			}
+		}
+		c.Next()
+	}
+}
+
 func CORS(allowedOrigin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 		if origin == allowedOrigin {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Device-ID, X-Visitor-Token")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			c.Header("Vary", "Origin")
 		}

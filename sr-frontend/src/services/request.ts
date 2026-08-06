@@ -89,25 +89,25 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 export async function authenticatedFetch(
-	path: string,
-	options: RequestInit = {},
-	skipRefresh = false,
+  path: string,
+  options: RequestInit = {},
+  skipRefresh = false,
 ): Promise<Response> {
-	const headers = new Headers(options.headers)
-	if (options.body && !(options.body instanceof FormData)) {
-		headers.set('Content-Type', 'application/json')
-	}
-	if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
-	let response: Response
-	try {
-		response = await fetch(path, { ...options, headers, credentials: 'include' })
-	} catch {
-		throw new ApiError('网络连接失败，请检查网络后重试', 0, 'NETWORK_ERROR')
-	}
-	if (response.status === 401 && !skipRefresh && (await refreshOnce())) {
-		return authenticatedFetch(path, options, true)
-	}
-	return response
+  const headers = new Headers(options.headers)
+  if (options.body && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  let response: Response
+  try {
+    response = await fetch(path, { ...options, headers, credentials: 'include' })
+  } catch {
+    throw new ApiError('网络连接失败，请检查网络后重试', 0, 'NETWORK_ERROR')
+  }
+  if (response.status === 401 && !skipRefresh && (await refreshOnce())) {
+    return authenticatedFetch(path, options, true)
+  }
+  return response
 }
 
 export const http = {

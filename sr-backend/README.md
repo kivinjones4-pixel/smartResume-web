@@ -55,6 +55,37 @@ curl http://127.0.0.1:8080/ping
 独立的 `DB_USER`、`DB_PASSWORD`、`JWT_ACCESS_SECRET`、
 `JWT_REFRESH_SECRET` 和合适的 `DB_SSLMODE`。
 
+### Windows 初始化远程数据库
+
+`scripts/init-database.ps1` 读取后端 `.env` 的 `DB_HOST`、`DB_PORT`、
+`DB_USER`、`DB_PASSWORD`、`DB_NAME` 和 `DB_SSLMODE`，非空的同名进程变量优先。
+Neon 使用云端主机、真实密码和 `DB_SSLMODE=require`。脚本不读取连接 URL；
+不额外设置 channel binding。目标数据库需要预先存在，账号需有建表和创建扩展权限。
+
+从项目根目录运行：
+
+```powershell
+# 离线检查配置与 SQL 文件，不连接数据库，也不要求安装 psql
+powershell -NoProfile -ExecutionPolicy Bypass -File sr-backend/scripts/init-database.ps1 -CheckOnly
+
+# 首次初始化：需要 PostgreSQL 客户端 psql 在 PATH 中
+powershell -NoProfile -ExecutionPolicy Bypass -File sr-backend/scripts/init-database.ps1
+```
+
+若 psql 未加入 PATH，可追加 `-PsqlPath 'C:\Program Files\PostgreSQL\16\bin\psql.exe'`
+（按实际安装路径调整）；自定义配置文件使用 `-EnvFile`。
+ExecutionPolicy Bypass 仅作用于本次 PowerShell 子进程。
+
+执行顺序：`init.sql` → `20260804_add_resume_access_settings.sql` →
+`20260805_add_visitor_ai_daily_usage.sql` → `init_knowledge_rag.sql` →
+`init_hybrid_search.sql`。SQL 创建 pgcrypto、vector、pg_trgm 扩展，向量维度固定为 1536。
+脚本初始化表结构，不搬迁本地数据，也不调用模型或导入知识库内容。
+
+**`init.sql` 不可重复执行，仅用于首次建表。** 已成功执行基础 SQL、只需补充后续表和
+索引时追加 `-SkipBase`。脚本不清库，任一文件失败后立即停止；各 SQL 文件独立提交，
+已经成功的文件不会整体回滚。只有确认基础初始化完整成功后才能使用 `-SkipBase`。
+离线检查成功不代表密码有效、远程连接成功或数据库初始化完成。
+
 ### 导入平台助手知识库
 
 首次导入前执行 `scripts/init_knowledge_rag.sql`，并配置独立的 Chat 与
